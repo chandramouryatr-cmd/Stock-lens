@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["run.py"],
       "port": 8770
+    },
+    {
+      "name": "stock-lens-phone",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["run.py", "--lan"],
+      "port": 8770
     }
   ]
 }

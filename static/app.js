@@ -252,7 +252,11 @@
       const a = (c2.announcements || [])[0];
       Object.assign(row, { state: "ok", name: shortName(c2.name), go: c2.path, industry: ind2 ? ind2.name : "", score: sc, trend: Score.trend(c2),
         ann: a ? { title: a.title, date: a.date } : null, quarter: c2.tables && c2.tables.quarters ? c2.tables.quarters.headers.slice(-1)[0] : null });
-    } catch (e) { row.state = "err"; }
+    } catch (e) {
+      // One more try at the end of the queue (the source may just have been busy), then give up.
+      row.tries = (row.tries || 0) + 1;
+      if (row.tries < 2 && !/404/.test(e.message)) SCR.queue.push(p); else row.state = "err";
+    }
     SCR.active--;
     if (SCR.queue.length) screenNext();
     renderScreen();
@@ -655,7 +659,7 @@
     const epsCh = eps.length > 1 && eps[0][1] > 0 ? (eps[eps.length - 1][1] / eps[0][1] - 1) * 100 : null;
     el.innerHTML = `<div class="grid">
       <div id="pro-top"></div>
-      <div class="card"><div class="hc-head"><div><h2>Price</h2><p class="sub">Daily closing price with its 50-day and 200-day averages${info("moving average")}. Hover the chart for exact values.</p></div>
+      <div class="card" id="pchart"><div class="hc-head"><div><h2>Price</h2><p class="sub">Daily closing price with its 50-day and 200-day averages${info("moving average")}. Hover the chart for exact values.</p></div>
         <div class="seg mini" id="pr-seg">${RANGES.map(([k]) => `<button data-pr="${k}" aria-selected="${k === S.pr}">${k}</button>`).join("")}</div></div>
         <div id="ch-price"></div></div>
       <div class="tiles">
@@ -692,7 +696,10 @@
         { name: "200-day average", color: "var(--s2)", values: s200.slice(i0) },
       ], { fmt: (x) => "₹" + inr(x, x < 100 ? 1 : 0), width: box.clientWidth, height: 280 }));
     };
-    draw();
+    // Full trading-style chart when the chart library is available; the simple line chart is the fallback.
+    const sym = c.nse_symbol ? c.nse_symbol + ".NS" : c.bse_code ? c.bse_code + ".BO" : null;
+    if (window.ProChart && window.LightweightCharts && sym) ProChart.mount($("#pchart"), sym, shortName(c.name));
+    else draw();
     $$("[data-pr]", el).forEach((b) => b.addEventListener("click", () => {
       S.pr = b.dataset.pr;
       $$("[data-pr]", el).forEach((x) => x.setAttribute("aria-selected", x === b));

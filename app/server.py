@@ -26,6 +26,8 @@ def route(path, qs):
         return screener.company(_one(qs, "path"), light=_one(qs, "light") == "1")
     if path == "/api/price":
         return screener.price(_one(qs, "symbol"), _one(qs, "range", "1y"))
+    if path == "/api/ohlc":
+        return screener.ohlc(_one(qs, "symbol"), _one(qs, "view", "daily"))
     if path == "/api/index":
         return screener.index_list(_one(qs, "name", ""))
     if path == "/api/dividends":
@@ -76,10 +78,27 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(raw)
 
 
+def _lan_ip():
+    """This computer's address on the local network (no data is sent to find it)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.0.2.1", 9))
+        return s.getsockname()[0]
+    except OSError:
+        return "this-computer's-IP"
+    finally:
+        s.close()
+
+
 def main():
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    # --lan lets other devices on the same Wi-Fi (your phone) open it. Without it, only this computer can.
+    lan = "--lan" in sys.argv
+    srv = ThreadingHTTPServer(("0.0.0.0" if lan else "127.0.0.1", PORT), Handler)
     url = f"http://127.0.0.1:{PORT}"
     print(f"Stock Lens running at {url}  (Ctrl+C to stop)")
+    if lan:
+        print(f"On your phone (same Wi-Fi) open:  http://{_lan_ip()}:{PORT}")
     if "--open" in sys.argv:
         webbrowser.open(url)
     try:

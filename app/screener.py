@@ -354,6 +354,35 @@ def dividends(symbol):
     return {"dividends": divs, "splits": splits}
 
 
+OHLC_VIEWS = {"1d": ("1d", 300), "5d": ("5d", 900), "daily": (None, 86400)}
+
+
+@cached(HOUR // 4)
+def ohlc(symbol, view="daily"):
+    """Candles (open, high, low, close, volume) from Yahoo Finance.
+    view: '1d' = today in 5-minute candles, '5d' = 15-minute candles, 'daily' = 20 years of daily candles."""
+    if not re.fullmatch(r"[\w\-&.]+\.(NS|BO)|\^NSEI", symbol) or view not in OHLC_VIEWS:
+        raise ValueError("Bad symbol")
+    import time
+    rng, step = OHLC_VIEWS[view]
+    if rng:
+        params = {"range": rng, "interval": "5m" if step == 300 else "15m"}
+    else:  # explicit dates: asking for range=max silently returns monthly candles
+        now = int(time.time())
+        params = {"period1": now - 20 * 366 * 86400, "period2": now + 86400, "interval": "1d"}
+    d = get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}", params=params)
+    res = d["chart"]["result"][0]
+    q = res["indicators"]["quote"][0]
+    rows = []
+    for t, o, h, l, c, v in zip(res.get("timestamp") or [], q["open"], q["high"], q["low"], q["close"], q["volume"]):
+        if None in (o, h, l, c):
+            continue
+        if rng and t % step:  # the trailing "live tick" is not a real candle
+            continue
+        rows.append([t, round(o, 2), round(h, 2), round(l, 2), round(c, 2), v or 0])
+    return {"symbol": symbol, "view": view, "rows": rows}
+
+
 @cached(HOUR)
 def price(symbol, rng="1y"):
     if not re.fullmatch(r"[\w\-&.]+\.(NS|BO)|\^NSEI", symbol) or rng not in ("1y", "5y"):

@@ -33,19 +33,24 @@ def _wait(host):
 def fetch(url, method="GET", params=None, data=None, headers=None, timeout=20):
     host = urlparse(url).netloc
     err = None
-    for attempt in range(2):
+    for attempt in range(4):
         _wait(host)
         try:
             r = _session.request(method, url, params=params, data=data, headers=headers, timeout=timeout)
-            if r.status_code == 429:
-                time.sleep(2 + attempt * 2)
+            if r.status_code in (429, 503):  # the source asks us to slow down: wait longer each time
+                err = f"busy ({r.status_code})"
+                time.sleep(3 * 2 ** attempt)
                 continue
+            if 400 <= r.status_code < 500:  # a wrong address will not get better by asking again
+                raise RuntimeError(f"Could not fetch {url}: {r.status_code} {r.reason}")
             r.raise_for_status()
             if not r.encoding or r.encoding.lower() == "iso-8859-1":
                 r.encoding = "utf-8"
             return r
-        except requests.RequestException as e:  # retry once
+        except requests.RequestException as e:  # network hiccup or server error: try again
             err = e
+            if attempt >= 1:
+                break
             time.sleep(1)
     raise RuntimeError(f"Could not fetch {url}: {err or 'rate limited'}")
 

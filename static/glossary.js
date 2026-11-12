@@ -48,5 +48,7 @@ window.Glossary = {
   "concall": ["Earnings call", "A phone call after each quarter's results where managers explain the numbers and answer analysts' questions. The transcript is the written record."],
   "pledge": ["Promoter pledge", "When promoters hand over their shares as security for a loan. If the share price falls, the lender can sell those shares, pushing the price down further."],
   "contingent liabilities": ["Contingent liabilities", "Money the company may have to pay if something goes against it, such as a court case or a tax dispute. It is not in the main accounts yet."],
+  "candlestick": ["Candlestick chart", "Each candle shows one period (a day, a week, or 5 minutes). The thick body runs from the opening price to the closing price: green if it closed higher, red if lower. The thin lines above and below reach the highest and lowest price in that period."],
+  "volume": ["Volume", "How many shares changed hands in that period. A big price move on high volume means many people agreed with it; the same move on low volume is less convincing."],
   "interest cover": ["Interest cover", "How many times over the operating profit can pay the yearly interest bill. 3× or more is comfortable."],
 };

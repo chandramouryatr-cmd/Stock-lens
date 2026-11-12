@@ -483,7 +483,16 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 
 /* ---------- Tools: nav, portfolio, screener, scores, calculator ---------- */
 .tool-nav { display: flex; gap: 2px; }
-@media (max-width: 720px) { .tool-nav { display: none; } }
+@media (max-width: 720px) {
+  /* Phone: tool links sit on their own row under the search box */
+  .toolbar { flex-wrap: wrap; row-gap: 4px; }
+  .tool-nav { order: 5; width: 100%; justify-content: center; gap: 6px; }
+  .tool-link { padding: 4px 12px; }
+  .seg-wrap { top: 86px !important; }
+  .pf-form .cmp-add, .pf-form .cmp-add input, .pf-form input[type="number"], .cmp-add input { width: 100%; }
+  .pf-form .cmp-add { display: block; }
+  .hc-head { flex-wrap: wrap; }
+}
 .btn[disabled] { opacity: 0.4; pointer-events: none; }
 .pf-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0 16px; }
 .pf-form input, .fgrid input, .cell-in {
@@ -516,6 +525,29 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 .fv-row .k { font-size: 0.75rem; color: var(--text-2); }
 .fv-row .v { font: 600 1.25rem/1.2 var(--font-display); letter-spacing: -0.025em; font-variant-numeric: tabular-nums; margin-top: 2px; }
 .chg { font-size: 0.875rem; color: var(--text-2); margin-top: 3px; display: grid; gap: 2px; }
+
+/* ---------- Trading-style chart ---------- */
+.ct-tools { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-bottom: 12px; }
+.ct-group { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ct-group .i-btn { margin: 0 6px 0 0; }
+.toggle.ct { background: var(--fill); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 5px 11px; }
+.toggle.ct[aria-pressed="true"] { background: var(--text); color: var(--bg); opacity: 1; }
+.toggle.ct[aria-pressed="false"] { opacity: 1; color: var(--text-2); }
+.toggle[disabled], .seg button[disabled] { opacity: 0.35 !important; pointer-events: none; }
+.ct-wrap { position: relative; }
+#ct-main { height: min(60vh, 460px); min-height: 320px; }
+#ct-rsi { height: 130px; }
+.ct-sub { font-size: 0.75rem; color: var(--text-3); margin: 10px 0 2px; }
+.ct-legend { position: absolute; top: 4px; left: 4px; right: 70px; z-index: 3; pointer-events: none; font-size: 0.75rem; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.ct-legend span { margin-right: 8px; white-space: nowrap; }
+.ct-legend b { font-weight: 600; }
+.ct-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-2); font-size: 0.875rem; text-align: center; padding: 20px; }
+#pchart .seg.mini { max-width: 100%; }
+@media (max-width: 720px) {
+  /* Phone: the values sit above the chart instead of on top of the candles */
+  .ct-legend { position: static; margin-bottom: 6px; }
+  #ct-main { height: 360px; }
+}
 
 /* ---------- Loading ---------- */
 .skel { background: var(--fill); border-radius: 8px; position: relative; overflow: hidden; }
