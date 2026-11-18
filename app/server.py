@@ -7,7 +7,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from . import news, screener, zauba
+from . import ask, news, screener, zauba
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(ROOT, "static")
@@ -26,6 +26,8 @@ def route(path, qs):
         return screener.company(_one(qs, "path"), light=_one(qs, "light") == "1")
     if path == "/api/price":
         return screener.price(_one(qs, "symbol"), _one(qs, "range", "1y"))
+    if path == "/api/ask-status":
+        return ask.status()
     if path == "/api/ohlc":
         return screener.ohlc(_one(qs, "symbol"), _one(qs, "view", "daily"))
     if path == "/api/index":
@@ -70,6 +72,29 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:  # upstream source failed
             traceback.print_exc()
             body, status = {"error": str(e)}, 502
+        self._json(body, status)
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        if u.path != "/api/ask":
+            return self._json({"error": "Unknown endpoint"}, 404)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n <= 0 or n > 200_000:
+                raise ValueError("Question is empty or too long.")
+            body, status = ask.ask(json.loads(self.rfile.read(n).decode("utf-8"))), 200
+        except LookupError:
+            body, status = {"error": "NO_KEY"}, 400
+        except ValueError as e:
+            body, status = {"error": str(e)}, 400
+        except RuntimeError as e:
+            body, status = {"error": str(e)}, 502
+        except Exception as e:
+            traceback.print_exc()
+            body, status = {"error": "Something went wrong asking Claude: " + str(e)}, 502
+        self._json(body, status)
+
+    def _json(self, body, status):
         raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")

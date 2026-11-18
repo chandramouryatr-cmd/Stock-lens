@@ -32,6 +32,15 @@ Keyboard: press `/` to search, `Esc` to close the side panel or an explanation.
 
 Small **i** buttons next to technical terms open a plain-English meaning.
 
+## Ask Claude
+
+Select any text on a page and a small bar appears: **Meaning** explains the term, and the box lets you type a question about it. Answers show in the **Ask Claude** chat panel at the bottom left, which you can collapse to a button and reopen. Claude is told which company and tab you are on and its key numbers, so you can ask things like "is this debt level high for this company?".
+
+- **Meaning** works without any setup for the ~90 terms in the built-in glossary.
+- **Questions to Claude** need an Anthropic API key (a paid Anthropic account). Put the key as the only text in a file named `anthropic-key.txt` in this folder, or set the `ANTHROPIC_API_KEY` environment variable, then restart Stock Lens. The file is git-ignored and the key stays on the server; the browser never sees it.
+- It uses `claude-opus-5-5` at low effort. Set `STOCK_LENS_MODEL` to use a different model. Every question is a paid API call.
+- Your chat is saved in this browser only. **New chat** (pencil icon) clears it.
+
 ## Tools
 
 | Page | What it does |

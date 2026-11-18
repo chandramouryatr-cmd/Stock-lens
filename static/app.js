@@ -463,7 +463,10 @@
           <div id="spark"></div>
         </div>
       </div>
-      <div class="seg-wrap"><div class="seg" role="tablist" id="seg">
+      <div class="seg-wrap">
+        <button class="seg-arrow left hidden" id="seg-l" aria-label="Show earlier tabs" tabindex="-1"><svg width="9" height="14" viewBox="0 0 10 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L2 8l6 6"/></svg></button>
+        <button class="seg-arrow right hidden" id="seg-r" aria-label="Show more tabs" tabindex="-1"><svg width="9" height="14" viewBox="0 0 10 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2l6 6-6 6"/></svg></button>
+        <div class="seg" role="tablist" id="seg">
         <span class="thumb" id="thumb"></span>
         ${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.tab}">${l}<span class="count" data-count="${k}"></span></button>`).join("")}
       </div></div>
@@ -475,7 +478,37 @@
       if (!b) return;
       const x = b.offsetLeft, w = b.offsetWidth;
       if (instant) { thumbX.set(x); thumbW.set(w); } else { thumbX.to(x, { response: 0.3 }); thumbW.to(w, { response: 0.3 }); }
-      b.scrollIntoView({ block: "nearest", inline: "nearest" });
+      // Bring the chosen tab into view inside the bar only (never scroll the page).
+      const s = $("#seg"), pad = 40;
+      if (x < s.scrollLeft + pad) s.scrollTo({ left: Math.max(0, x - pad), behavior: instant || reduced() ? "auto" : "smooth" });
+      else if (x + w > s.scrollLeft + s.clientWidth - pad) s.scrollTo({ left: x + w - s.clientWidth + pad, behavior: instant || reduced() ? "auto" : "smooth" });
+    };
+    // The tab bar scrolls sideways when the tabs don't fit: arrows, mouse wheel, trackpad or finger.
+    const seg = $("#seg");
+    const edges = () => {
+      const max = seg.scrollWidth - seg.clientWidth, l = seg.scrollLeft > 2, r = seg.scrollLeft < max - 2;
+      $("#seg-l").classList.toggle("hidden", !l); $("#seg-r").classList.toggle("hidden", !r);
+      seg.classList.toggle("fade-l", l); seg.classList.toggle("fade-r", r);
+    };
+    seg.addEventListener("scroll", edges, { passive: true });
+    seg.addEventListener("wheel", (e) => {
+      const max = seg.scrollWidth - seg.clientWidth;
+      if (max <= 0) return;
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if ((d < 0 && seg.scrollLeft <= 0) || (d > 0 && seg.scrollLeft >= max)) return; // at the end: let the page scroll
+      e.preventDefault();
+      seg.scrollLeft += d;
+    }, { passive: false });
+    const nudge = (dir) => seg.scrollBy({ left: dir * seg.clientWidth * 0.6, behavior: reduced() ? "auto" : "smooth" });
+    $("#seg-l").addEventListener("click", () => nudge(-1));
+    $("#seg-r").addEventListener("click", () => nudge(1));
+    requestAnimationFrame(edges);
+    addEventListener("resize", edges);
+    // Tab labels grow when counts arrive ("36 flagged"): keep the thumb and arrows in step without scrolling.
+    S.segRefresh = () => {
+      const b = $(`#seg button[data-tab="${S.tab}"]`);
+      if (b) { thumbX.set(b.offsetLeft); thumbW.set(b.offsetWidth); }
+      edges();
     };
     $$("#seg button").forEach((b) => b.addEventListener("pointerdown", () => {
       if (S.tab === b.dataset.tab) return;
@@ -523,6 +556,7 @@
     set("news", flagged ? flagged + " flagged" : "");
     const r = Risk.compute(S).filter((x) => x.level === "high").length;
     set("risks", r ? r + " high" : "");
+    if (S.segRefresh) requestAnimationFrame(S.segRefresh);
   }
 
   function renderTab(isRefresh) {
