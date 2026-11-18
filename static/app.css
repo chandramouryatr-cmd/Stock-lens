@@ -303,6 +303,31 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 }
 .toggle[aria-pressed="false"] { opacity: 0.45; }
 .toggle:active { transform: scale(0.96); }
+.net-find {
+  position: relative; margin-left: auto; display: flex; align-items: center; gap: 7px;
+  padding: 0 11px; height: 31px; border-radius: 999px; color: var(--text-3);
+  background: var(--chrome); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 0 0 1px var(--chrome-edge); width: 250px; max-width: 100%;
+}
+.net-find:focus-within { box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent); }
+.net-find input { flex: 1; min-width: 0; border: 0; background: none; outline: 0; font: inherit; font-size: 0.8125rem; color: var(--text); }
+.net-find input::-webkit-search-cancel-button { cursor: pointer; }
+.net-count { font-size: 0.75rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.net-res {
+  position: absolute; top: calc(100% + 6px); right: 0; width: 320px; max-width: calc(100vw - 40px);
+  background: var(--surface); border-radius: 12px; padding: 5px; z-index: 5;
+  box-shadow: 0 0 0 1px var(--sep), 0 12px 32px rgba(0,0,0,0.16); max-height: 340px; overflow: auto;
+}
+.net-hit {
+  display: grid; grid-template-columns: 10px minmax(0,1fr) auto; align-items: center; gap: 9px; width: 100%;
+  border: 0; background: none; text-align: left; padding: 7px 9px; border-radius: 8px; cursor: pointer; font: inherit; color: var(--text);
+}
+.net-hit:hover, .net-hit.sel { background: var(--fill); }
+.net-hit .dot { width: 9px; height: 9px; border-radius: 50%; }
+.nh-name { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nh-type { font-size: 0.75rem; color: var(--text-3); white-space: nowrap; }
+.nh-more { font-size: 0.8125rem; color: var(--text-3); padding: 7px 9px; }
+@media (max-width: 640px) { .net-find { margin-left: 0; width: 100%; } .net-res { left: 0; right: auto; width: 100%; } }
 .net-hint { position: absolute; bottom: 12px; left: 14px; font-size: 0.8125rem; color: var(--text-3); z-index: 2; }
 
 /* ---------- People ---------- */
@@ -334,6 +359,16 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 .badge.info { background: var(--fill); color: var(--text-2); }
 
 /* ---------- News ---------- */
+.impact-row { align-items: center; margin-top: -4px; }
+.impact-lbl { font-size: 0.8125rem; color: var(--text-2); font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin-right: 2px; }
+.chip.imp-pos.on { background: var(--good); color: #fff; }
+.chip.imp-neg.on { background: var(--high); color: #fff; }
+.impact { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; cursor: help; white-space: nowrap; }
+.impact.pos { background: var(--good-bg); color: var(--good); }
+.impact.neg { background: var(--high-bg); color: var(--high); }
+.impact.mixed { background: var(--fill); color: var(--text-2); }
+.impact.strong.pos { background: var(--good); color: #fff; }
+.impact.strong.neg { background: var(--high); color: #fff; }
 .news-item { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--sep); }
 .news-item:first-child { border-top: 0; }
 .news-item .when { width: 64px; flex: none; color: var(--text-3); font-size: 0.8125rem; padding-top: 2px; }

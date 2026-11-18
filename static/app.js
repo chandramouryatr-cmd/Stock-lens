@@ -346,7 +346,7 @@
   /* ------------------------------------------------------------------ Company */
   async function loadCompany(path) {
     const tok = ++S.token;
-    Object.assign(S, { path, company: null, people: null, peopleErr: null, price: null, priceDone: false, nifty: null, val: null, news: {}, newsFilter: "all", flaggedOnly: false, rpAll: false });
+    Object.assign(S, { path, company: null, people: null, peopleErr: null, price: null, priceDone: false, nifty: null, val: null, news: {}, newsFilter: "all", flaggedOnly: false, newsImpact: "any", rpAll: false });
     if (S.cy) { S.cy.destroy(); S.cy = null; }
     scrollTo({ top: 0 });
     $("#view").innerHTML = `
@@ -941,6 +941,62 @@
   }
 
   /* ------------------------------------------------------------------ News */
+  /* Likely price impact of a headline: simple word rules, each with a weight.
+     Words describing the share's actual move (jumps, slumps) count double: they report the market's reaction. */
+  const IMPACT_RULES = [
+    // [weight, regex, short reason]
+    [2, /\b(jump|surge|soar|rall(y|ie)|zoom|spurt|skyrocket)\w*|\bshares? (rise|rises|rose|gain|gains|climb|climbs|up)\b|\b(rises?|rose|gains?|climbs?|advances?|up) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? gains\b|\bhits? (52.week|record|all.time|fresh|new) high|\btop gainers?\b|\bupper circuit/i, "shares rose"],
+    [-2, /\b(slump|plunge|tank|crash|tumble|sink|sank|slide|slid|plummet|nosedive)\w*|\bshares? (fall|falls|fell|drop|drops|dropped|dip|dips|decline|declines|down|slip|slips)\b|\b(falls?|fell|drops?|declines?|slips?|sheds?|down) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? losses\b|\bhits? (52.week|record|fresh|new) low|\btop losers?\b|\blower circuit/i, "shares fell"],
+    [2, /\b(record|highest|strong|robust|stellar|bumper) (profit|revenue|earnings|results|growth|quarter|q\d)|\bprofit (rises|jumps|surges|soars|grows|up|doubles)|\bnet (profit|income) (rises|jumps|up)|\bbeats? (estimates|expectations|street)/i, "strong results"],
+    [-2, /\b(weak|poor|disappointing|muted) (results|quarter|q\d|earnings|show)|\b(profit|revenue|income|earnings) (falls|fell|drops|declines|slumps|plunges|down|dips)|\bloss (widens|widened)|\bmiss(es|ed)? (estimates|expectations)|\bposts? (a )?(net )?loss/i, "weak results"],
+    [2, /\bupgrad\w*|\b(target|tp) (raised|hiked|increased)|\b(buy|overweight|outperform) (rating|call)|\binitiates? .{0,20}\bbuy\b|\bbullish\b/i, "analyst upgrade"],
+    [-2, /\bdowngrad\w*|\b(target|tp) (cut|lowered|reduced)|\b(sell|underweight|underperform|reduce) (rating|call)|\bbearish\b|negative outlook/i, "analyst downgrade"],
+    [2, /\b(wins?|won|bags?|bagged|secures?|secured|bag) .{0,40}\b(order|contract|deal|project)s?\b|\border (win|inflow)s?\b/i, "new orders"],
+    [1, /\b(approv\w*|nod|clearance|licen[cs]e granted)\b|\blifts? (curbs?|ban|restrictions?)|\bcurbs? (lifted|removed|eased)/i, "approval"],
+    [1, /\bbuyback\b|\bbonus (issue|shares)|\b(special |interim |final )?dividend\b|\bstock split\b/i, "shareholder payout"],
+    [1, /\b(acquir|expan|launch)\w*|\bpartnership\b|\btie.?up\b|\bjoint venture\b|\bnew (plant|facility|capacity)|\braises? .{0,30}(crore|funds|capital)|\bfund.?rais\w*/i, "growth move"],
+    [1, /\b(hikes?|raises?|increases?|ups?) (stake|holding)|\b(buys?|bought|picks? up|acquires) .{0,20}\bstake|\bstake (hike|increase|buy)/i, "someone buying stake"],
+    [-2, /\b(exit|exits|exiting|offload\w*|dump\w*|sells?|sold|selling|trims?|trimmed|pares?|cuts?) .{0,30}\b(stake|holding|shares)|\bstake sale\b|\bblock deal\b.{0,40}\b(sell|exit)|\bexit\w*\b.{0,60}\b(block deal|sale)\b|\boffer for sale\b|\bOFS\b/i, "big holder selling"],
+    [-1, /\b(curbs?|ban|bans|banned|restrict\w*|embargo)\b|\bsuspend\w*/i, "restriction"],
+    [-1, /\b(concerns?|worr(y|ies)|warns?|warning|headwinds?|pressure|stress|slowdown|uncertain\w*)\b|\bcuts? (guidance|forecast|outlook)/i, "concern"],
+    [-1, /\b(npa|bad loans?|asset quality|slippages?)\b.{0,30}\b(rise|rises|jump|up|worsen\w*|spike)/i, "bad loans rising"],
+  ];
+  const TAG_IMPACT = { high: -3, medium: -1.5, low: -1, positive: 0 };
+  const MARKET_WIDE = /\b(sensex|nifty ?(50|bank|it)?|markets?|dalal street|stocks to (watch|buy)|stocks in (news|focus)|buzzing stocks|top (gainers|losers)|midcaps?|smallcaps?)\b/i;
+  function newsImpact(x) {
+    let t = x.title;
+    let score = 0;
+    const why = [];
+    // Round-ups ("Sensex tumbles; IIFL, SpiceJet among buzzing stocks") cover many companies:
+    // judge only the parts that name this company, or give the whole thing half weight if it isn't named.
+    const market = MARKET_WIDE.test(t);
+    const key = (shortName(S.company?.name || "").split(/\s+/)[0] || "").toLowerCase();
+    let scoped = false;
+    if (market && key.length >= 3) {
+      const parts = t.split(/\s*[,;:|]\s*|\s+[-–—]\s+/).filter((p) => p.toLowerCase().includes(key));
+      if (parts.length) { t = parts.join(". "); scoped = true; why.push(`market round-up: only “${t}” judged`); }
+    }
+    for (const [w, rx, label] of IMPACT_RULES) {
+      const m = t.match(rx);
+      if (m) { score += w; why.push(`${w > 0 ? "+" : "−"} ${label} (“${m[0].trim()}”)`); }
+    }
+    for (const tg of x.tags) {
+      const w = TAG_IMPACT[tg.severity] || 0;
+      if (w && (!scoped || t.toLowerCase().includes(String(tg.match || "").toLowerCase()))) { score += w; why.push(`− ${tg.label.toLowerCase()} (“${tg.match || tg.label}”)`); }
+    }
+    if (market && !scoped) { score /= 2; why.push("½ weight: a market round-up that doesn't name this company"); }
+    const pos = why.some((w) => w.startsWith("+")), neg = why.some((w) => w.startsWith("−"));
+    const dir = score >= 1 ? "pos" : score <= -1 ? "neg" : pos && neg ? "mixed" : "none";
+    return { dir, strong: Math.abs(score) >= 3, score, why };
+  }
+  const IMPACT_LABEL = { pos: "Likely positive", neg: "Likely negative", mixed: "Mixed", none: "No clear impact" };
+  function impactBadge(im) {
+    if (im.dir === "none") return "";
+    const arrow = im.dir === "pos" ? "▲" : im.dir === "neg" ? "▼" : "◆";
+    const tip = `Score ${im.score > 0 ? "+" : ""}${+im.score.toFixed(1)}: ${im.why.join("; ")}. Keyword hint only, not a prediction.`;
+    return `<span class="impact ${im.dir}${im.strong ? " strong" : ""}" title="${esc(tip)}">${arrow} ${im.strong ? "Strong " + IMPACT_LABEL[im.dir].toLowerCase().replace("likely ", "") : IMPACT_LABEL[im.dir]}</span>`;
+  }
+
   function tabNews(el) {
     const groups = Object.values(S.news);
     const loading = groups.some((g) => g.loading) || (!S.people && !S.peopleErr);
@@ -948,18 +1004,28 @@
     for (const g of groups) for (const it of g.items) all.push({ ...it, g });
     const seen = new Set();
     all = all.filter((x) => { const k = x.link; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => b.ts - a.ts);
-    let list = all.filter((x) => (S.newsFilter === "all" || x.g.key === S.newsFilter) && (!S.flaggedOnly || x.risk >= 2));
+    all.forEach((x) => (x.im = newsImpact(x)));
+    const imp = S.newsImpact || "any";
+    const base = all.filter((x) => (S.newsFilter === "all" || x.g.key === S.newsFilter) && (!S.flaggedOnly || x.risk >= 2));
+    const list = imp === "any" ? base : base.filter((x) => x.im.dir === imp || (imp === "mixed" && x.im.dir === "none"));
+    const nImp = (d) => base.filter((x) => x.im.dir === d).length;
     const chip = (k, label, n) => `<button class="chip press ${S.newsFilter === k ? "on" : ""}" data-nf="${esc(k)}">${esc(label)}${n ? ` <span style="opacity:.6">${n}</span>` : ""}</button>`;
+    const ichip = (k, label, n, cls = "") => `<button class="chip press ${cls} ${imp === k ? "on" : ""}" data-imp="${k}">${label}${n != null ? ` <span style="opacity:.6">${n}</span>` : ""}</button>`;
+    const sorted = imp === "pos" ? [...list].sort((a, b) => b.im.score - a.im.score || b.ts - a.ts) : imp === "neg" ? [...list].sort((a, b) => a.im.score - b.im.score || b.ts - a.ts) : list;
     el.innerHTML = `<div class="card">
-      <h2>What's happening</h2><p class="sub">Last 12 months from Google News for the company, its key people and main promoters. Flags come from simple keyword rules — always read the article.</p>
+      <h2>What's happening</h2><p class="sub">Last 12 months from Google News for the company, its key people and main promoters. Flags and impact come from simple keyword rules — always read the article.</p>
       <div class="filters">${chip("all", "All", all.length)}${groups.map((g) => chip(g.key, g.label, g.items.length)).join("")}
         <button class="chip press ${S.flaggedOnly ? "on" : ""}" id="nf-flag">${ICON.high} Flagged only</button></div>
+      <div class="filters impact-row"><span class="impact-lbl">Price impact ${info("news impact")}</span>
+        ${ichip("any", "Any")}${ichip("pos", "▲ Likely positive", nImp("pos"), "imp-pos")}${ichip("neg", "▼ Likely negative", nImp("neg"), "imp-neg")}${ichip("mixed", "Mixed or unclear", nImp("mixed") + nImp("none"))}</div>
+      ${imp === "pos" || imp === "neg" ? `<p class="sub" style="margin:-4px 0 6px">Strongest first. Hover a badge to see which words decided it.</p>` : ""}
       ${loading ? `<div class="loading-line" style="margin-bottom:8px"><span class="spinner"></span>Gathering more headlines…</div>` : ""}
-      <div>${list.length ? list.slice(0, 120).map((x) => `<div class="news-item"><div class="when">${ago(x.ts)}</div><div style="min-width:0">
+      <div>${sorted.length ? sorted.slice(0, 120).map((x) => `<div class="news-item"><div class="when">${ago(x.ts)}</div><div style="min-width:0">
           <a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
-          <div class="meta"><span>${esc(x.source)}</span><span class="pill">${esc(x.g.label)}</span>${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("")
+          <div class="meta">${impactBadge(x.im)}<span>${esc(x.source)}</span><span class="pill">${esc(x.g.label)}</span>${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("")
         : `<div class="empty">${loading ? "" : "No headlines match."}</div>`}</div></div>`;
     $$("[data-nf]", el).forEach((b) => b.addEventListener("click", () => { S.newsFilter = b.dataset.nf; tabNews(el); }));
+    $$("[data-imp]", el).forEach((b) => b.addEventListener("click", () => { S.newsImpact = b.dataset.imp; tabNews(el); }));
     $("#nf-flag", el).addEventListener("click", () => { S.flaggedOnly = !S.flaggedOnly; tabNews(el); });
   }
 
@@ -1046,6 +1112,12 @@
       <div class="net-tools">
         ${t("owners", "Owners", "--n-holder")}${t("related", "Related parties", "--n-related")}${t("people", "People", "--n-person")}${t("links", "Their other companies", "--n-linked")}${t("peers", "Peers", "--n-peer")}
         <button class="toggle" data-net="allLinks" aria-pressed="${S.net.allLinks}" title="By default only listed companies and companies shared by 2+ directors are shown">Show every board link</button>
+        <div class="net-find" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="net-q" type="search" placeholder="Find a person or company" autocomplete="off" spellcheck="false" aria-label="Find a person or company in the map" aria-controls="net-res">
+          <span class="net-count" id="net-count"></span>
+          <div class="net-res hidden" id="net-res" role="listbox"></div>
+        </div>
       </div>
       <div id="cy" role="img" aria-label="Network of the company, its owners, people, related parties and peers"></div>
       <div class="net-hint">${S.people ? "Tap any dot for details · drag to rearrange · scroll to zoom" : "Loading directors — people will appear shortly…"}</div>
@@ -1056,8 +1128,87 @@
       S.net[k] = !S.net[k];
       b.setAttribute("aria-pressed", S.net[k]);
       if (k === "allLinks") drawGraph(); else applyFilters(true);
+      netFind();
     }));
     drawGraph();
+    wireNetFind();
+  }
+
+  /* Map search: type to highlight matching dots, pick one to zoom to it and open its details. */
+  const NET_ROLE = { holder: ["owners", "Owner"], related: ["related", "Related party"], peer: ["peers", "Peer"], person: ["people", "Person"], linked: ["links", "Other company"], center: [null, "This company"] };
+  let netHits = [], netSel = -1;
+  function netNames(n) {
+    const x = n.extra || {};
+    return [n.label, x.holder?.name, x.rp?.name, x.peer?.name, x.person?.name, x.linked?.name].filter(Boolean).join(" ").toLowerCase();
+  }
+  function netFind() {
+    const inp = $("#net-q"), res = $("#net-res"), cnt = $("#net-count");
+    if (!inp || !S.cy) return;
+    const q = inp.value.trim().toLowerCase();
+    S.cy.elements().removeClass("miss found");
+    netSel = -1;
+    if (!q) { netHits = []; res.classList.add("hidden"); cnt.textContent = ""; inp.parentElement.setAttribute("aria-expanded", "false"); return; }
+    const words = q.split(/\s+/);
+    netHits = Object.values(S.nodes).filter((n) => { const s = netNames(n); return words.every((w) => s.includes(w)); })
+      .sort((a, b) => (a.label.toLowerCase().startsWith(q) ? 0 : 1) - (b.label.toLowerCase().startsWith(q) ? 0 : 1) || a.label.localeCompare(b.label));
+    const ids = new Set(netHits.map((n) => n.id));
+    S.cy.batch(() => S.cy.nodes().forEach((n) => n.addClass(ids.has(n.id()) ? "found" : "miss")));
+    S.cy.edges().addClass("miss");
+    cnt.textContent = netHits.length ? `${netHits.length}` : "0";
+    const hidden = (n) => S.cy.getElementById(n.id).style("display") === "none";
+    res.innerHTML = netHits.length
+      ? netHits.slice(0, 8).map((n, i) => `<button class="net-hit" role="option" data-i="${i}">
+          <span class="dot" style="background:${nodeColor(n)}"></span>
+          <span class="nh-name">${esc(n.label)}</span>
+          <span class="nh-type">${esc(n.roles.map((r) => NET_ROLE[r]?.[1] || r).join(" · "))}${hidden(n) ? " · hidden" : ""}</span>
+        </button>`).join("") + (netHits.length > 8 ? `<div class="nh-more">+${netHits.length - 8} more highlighted on the map</div>` : "")
+      : `<div class="nh-more">Nothing on this map matches "${esc(inp.value.trim())}"${S.net.allLinks ? "" : ". Try “Show every board link”."}</div>`;
+    res.classList.remove("hidden");
+    inp.parentElement.setAttribute("aria-expanded", "true");
+  }
+  function netGo(n) {
+    if (!n || !S.cy) return;
+    let el = S.cy.getElementById(n.id);
+    if (el.style("display") === "none") {
+      // Switch on the filter that hides it, so the dot can be shown.
+      const k = NET_ROLE[n.roles[0]]?.[0];
+      if (k) { S.net[k] = true; if (k === "links") S.net.people = true; }
+      $$("[data-net]").forEach((b) => b.setAttribute("aria-pressed", S.net[b.dataset.net]));
+      applyFilters(false);
+      el = S.cy.getElementById(n.id);
+    }
+    $("#net-res").classList.add("hidden");
+    S.cy.elements().removeClass("miss found");
+    el.closedNeighborhood().addClass("found");
+    S.cy.elements().not(el.closedNeighborhood()).addClass("miss");
+    S.cy.animate({ center: { eles: el }, zoom: Math.max(S.cy.zoom(), 1.3) }, { duration: reduced() ? 0 : 400, easing: "ease-out" });
+    openNode(n);
+  }
+  function wireNetFind() {
+    const inp = $("#net-q");
+    if (!inp) return;
+    inp.addEventListener("input", netFind);
+    inp.addEventListener("focus", () => { if (inp.value.trim()) netFind(); });
+    inp.addEventListener("keydown", (e) => {
+      const btns = $$(".net-hit");
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!btns.length) return;
+        netSel = (netSel + (e.key === "ArrowDown" ? 1 : -1) + btns.length) % btns.length;
+        btns.forEach((b, i) => b.classList.toggle("sel", i === netSel));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        netGo(netHits[netSel >= 0 ? netSel : 0]);
+      } else if (e.key === "Escape") {
+        e.stopPropagation();
+        inp.value = ""; netFind(); inp.blur();
+      }
+    });
+    $("#net-res").addEventListener("mousedown", (e) => {
+      const b = e.target.closest(".net-hit");
+      if (b) { e.preventDefault(); netGo(netHits[+b.dataset.i]); }
+    });
+    inp.addEventListener("blur", () => setTimeout(() => $("#net-res")?.classList.add("hidden"), 120));
   }
 
   function drawGraph() {
@@ -1084,6 +1235,9 @@
       box.style.cursor = "pointer";
     });
     S.cy.on("mouseout", "node", () => { S.cy.elements().removeClass("dim hl"); box.style.cursor = ""; });
+    // Keep an active search highlighted after a redraw (e.g. directors finished loading).
+    const q = $("#net-q");
+    if (q && q.value.trim()) { netFind(); if (document.activeElement !== q) $("#net-res").classList.add("hidden"); }
   }
 
   function styleGraph() {
@@ -1114,6 +1268,9 @@
       { selector: ".dim", style: { opacity: 0.12 } },
       { selector: "edge.hl", style: { label: "data(label)", opacity: 1, width: 2 } },
       { selector: "node.hl", style: { color: text } },
+      { selector: ".miss", style: { opacity: 0.1 } },
+      { selector: "node.found", style: { color: text, "border-color": cssVar("--accent"), "border-width": 3, "font-weight": 600, "min-zoomed-font-size": 0, "z-index": 10 } },
+      { selector: "edge.found", style: { opacity: 0.9, width: 2 } },
     ]);
   }
 
