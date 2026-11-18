@@ -183,6 +183,7 @@
   addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== q && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
     if (e.key === "Escape") closeSheet();
+    if (e.altKey && e.key === "ArrowLeft" && sheetOpen && sheetHist.length) { e.preventDefault(); sheetBack(); }
   });
   function go(path) { hideResults(); q.value = ""; $("#kbd").classList.remove("hidden"); q.blur(); location.hash = "#/c" + path; }
   $("#home").addEventListener("click", () => { location.hash = ""; });
@@ -1160,8 +1161,26 @@
     sheetOpen = true;
     sheetSpring.to(0, { response: 0.35, damping: 1 });
   }
+  // Back history inside the panel: opening one item from another remembers where you came from.
+  let sheetHist = [], sheetCur = null;
+  function showBack() {
+    const b = $("#sheet-back"), prev = sheetHist[sheetHist.length - 1];
+    b.classList.toggle("hidden", !prev);
+    if (prev) {
+      const name = String(prev.label || "Back");
+      $("#sheet-back-label").textContent = name.length > 28 ? name.slice(0, 26).trim() + "…" : name;
+      b.setAttribute("aria-label", "Back to " + name);
+      b.title = "Back to " + name;
+    }
+  }
+  function sheetBack() {
+    if (!sheetHist.length) return;
+    openNode(sheetHist.pop(), true);
+  }
+  $("#sheet-back").addEventListener("click", sheetBack);
   function closeSheet(velocity) {
     if (!sheetOpen) return;
+    sheetHist = []; sheetCur = null;
     sheetOpen = false;
     sheet.setAttribute("aria-hidden", "true");
     sheetSpring.to(closedPos(), { response: 0.35, damping: 1, velocity });
@@ -1201,8 +1220,12 @@
     head.addEventListener("pointercancel", end);
   })();
 
-  async function openNode(n) {
+  async function openNode(n, fromBack) {
     if (!n) return;
+    if (!fromBack && sheetOpen && sheetCur && sheetCur.id !== n.id) sheetHist.push(sheetCur);
+    if (sheetHist.length > 30) sheetHist.shift();
+    sheetCur = n;
+    showBack();
     const tok = ++sheetTok;
     const c = S.company, ex = n.extra || {}, parts = [];
     const roleBadges = n.roles.map((r) => ({ center: "This company", holder: "Shareholder", related: "Related party", peer: "Peer", person: "Person", linked: "Board link" }[r]))
