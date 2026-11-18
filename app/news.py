@@ -94,3 +94,29 @@ def search(q, limit=40, scan=False, period="1y"):
         })
     items.sort(key=lambda x: -x["ts"])
     return items[:limit]
+
+
+# Market-wide news for the home page: India and the world, grouped by theme.
+# Positive / negative for Indian stocks is worked out in the browser (static/app.js, MARKET_RULES)
+# so the rules sit next to the explanations shown to the user.
+MARKET_THEMES = [
+    ("India markets", "Sensex OR Nifty OR \"Indian stock market\" OR \"Dalal Street\""),
+    ("Economy & RBI", "RBI OR \"repo rate\" OR \"India GDP\" OR \"India inflation\" OR \"India economy\""),
+    ("Foreign money & rupee", "FPI OR FII OR rupee dollar"),
+    ("Oil & commodities", "\"crude oil\" OR Brent OR \"gold price\""),
+    ("Global markets", "\"Wall Street\" OR \"US Fed\" OR \"Federal Reserve\" OR \"global markets\" OR \"Asian markets\""),
+    ("Trade & geopolitics", "tariffs OR \"trade deal\" OR sanctions OR war markets OR geopolitical"),
+]
+
+
+@cached(15 * 60)  # market news moves fast: refresh every 15 minutes
+def market(period="2d"):
+    out = []
+    for theme, q in MARKET_THEMES:
+        try:
+            items = search.__wrapped__(q, limit=30, period=period)
+        except Exception as e:  # one failing theme should not blank the whole section
+            out.append({"theme": theme, "items": [], "error": str(e)[:200]})
+            continue
+        out.append({"theme": theme, "items": items})
+    return out

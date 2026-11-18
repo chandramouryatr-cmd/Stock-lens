@@ -51,7 +51,7 @@
   let ipopFor = null;
   function hideInfo() { ipop.classList.add("hidden"); ipopFor = null; }
   document.addEventListener("click", (e) => {
-    const b = e.target.closest && e.target.closest("[data-i]");
+    const b = e.target.closest && e.target.closest(".i-btn[data-i]");
     if (!b) { if (!e.target.closest || !e.target.closest("#ipop")) hideInfo(); return; }
     e.preventDefault(); e.stopPropagation();
     if (ipopFor === b) return hideInfo();
@@ -153,7 +153,7 @@
   function showResults(list) {
     items = list; sel = list.length ? 0 : -1;
     results.innerHTML = list.length
-      ? list.map((r, i) => `<button role="option" aria-selected="${i === sel}" data-i="${i}"><span>${esc(r.name)}</span><span class="path">${esc(r.path.split("/")[2])}</span></button>`).join("")
+      ? list.map((r, i) => `<button role="option" aria-selected="${i === sel}" data-ri="${i}"><span>${esc(r.name)}</span><span class="path">${esc(r.path.split("/")[2])}</span></button>`).join("")
       : `<div class="empty" style="padding:14px">No listed company matches</div>`;
     results.classList.remove("hidden");
     $("#search").setAttribute("aria-expanded", "true");
@@ -178,7 +178,10 @@
     } else if (e.key === "Enter" && items[sel]) { go(items[sel].path); }
     else if (e.key === "Escape") { hideResults(); q.blur(); }
   });
-  results.addEventListener("pointerdown", (e) => { const b = e.target.closest("button[data-i]"); if (b) { e.preventDefault(); go(items[+b.dataset.i].path); } });
+  // Open on a real tap only, so scrolling the results list doesn't open a company by accident.
+  // mousedown preventDefault keeps the search box focused (and the list open) while tapping.
+  results.addEventListener("mousedown", (e) => e.preventDefault());
+  results.addEventListener("click", (e) => { const b = e.target.closest("button[data-ri]"); if (b) go(items[+b.dataset.ri].path); });
   q.addEventListener("blur", () => setTimeout(hideResults, 120));
   addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== q && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); q.focus(); }
@@ -197,6 +200,9 @@
     const h = decodeURIComponent(location.hash.slice(1));
     closeSheet();
     hideInfo();
+    // Highlight the current page in the top links and the phone's bottom tab bar.
+    const here = PAGES[h] || h === "/compare" ? h : h.startsWith("/c/") ? "" : "/";
+    $$(".tool-link, .tabbar a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + here));
     if (h.startsWith("/c/company/")) {
       const path = h.slice(2);
       if (path !== S.path) loadCompany(path);
@@ -251,7 +257,8 @@
       }
       const ind2 = (c2.sector || []).find((s) => s.level === "Industry") || (c2.sector || []).slice(-1)[0] || ind;
       const a = (c2.announcements || [])[0];
-      Object.assign(row, { state: "ok", name: shortName(c2.name), go: c2.path, industry: ind2 ? ind2.name : "", score: sc, trend: Score.trend(c2),
+      const sym = c2.nse_symbol ? c2.nse_symbol + ".NS" : c2.bse_code ? c2.bse_code + ".BO" : null;
+      Object.assign(row, { state: "ok", name: shortName(c2.name), go: c2.path, sym, industry: ind2 ? ind2.name : "", score: sc, trend: Score.trend(c2),
         ann: a ? { title: a.title, date: a.date } : null, quarter: c2.tables && c2.tables.quarters ? c2.tables.quarters.headers.slice(-1)[0] : null });
     } catch (e) {
       // One more try at the end of the queue (the source may just have been busy), then give up.
@@ -306,40 +313,17 @@
   function home() {
     document.title = "Stock Lens";
     if (S.cy) { S.cy.destroy(); S.cy = null; }
-    const watch = store.get("sl-watch"), recent = store.get("sl-recent");
-    const chipRow = (title, list) => `<div class="chip-group"><span class="faint">${title}</span>${list.map((x) => `<button class="chip press" data-go="${esc(x.path)}">${esc(shortName(x.name))}</button>`).join("")}</div>`;
+    const hr = new Date().getHours();
     $("#view").innerHTML = `
-      <section class="hero fade-in">
-        <h1 class="display">See the whole company.<br>And everyone around it.</h1>
-        <p class="lede">Owners, directors, the businesses they're tied to, what the news is saying and where the risks are — for any Indian listed stock, from free public data.</p>
-        <div class="hero-btns"><button class="btn hero-search press" id="hero-search">Search a stock <span class="kbd-inline">/</span></button>
-          <a class="btn secondary hero-search" href="#/screener">Screener</a>
-          <a class="btn secondary hero-search" href="#/portfolio">Portfolio</a>
-          <a class="btn secondary hero-search" href="#/compare">Compare</a></div>
-        <div class="chip-groups">
-          ${watch.length ? chipRow("Watchlist", watch) : ""}
-          ${recent.length ? chipRow("Recent", recent) : ""}
-          ${!watch.length && !recent.length ? chipRow("Try", EXAMPLES.map(([name, path]) => ({ name, path }))) : ""}
-        </div>
-      </section>
-      <div id="changes"></div>
-      <section class="card fade-in">
-        <h2>Health-check screen</h2>
-        <p class="sub">${UNIVERSE.length} well-known NSE companies plus your watchlist, each run through the same 8 plain checks: returns, growth, debt, cash, promoter stake, latest quarter and price. Green = pass, amber = watch, red = fail, grey = does not apply. A list of places to start reading — not advice to buy or sell.</p>
-        <div id="screen"></div>
-      </section>
-      <section class="how">
-        ${[
-          ["--n-holder", "Owners & dealings", "Named shareholders, how their stakes moved, and the related parties the company transacts with."],
-          ["--n-person", "People", "Every director and key manager, their tenure, and every other board they sit on."],
-          ["--n-company", "Network", "One map that links the company, its owners, people, group firms and peers."],
-          ["--high", "News & risks", "Headlines for the company and its people, auto-flagged, plus rule-based checks with the evidence shown."],
-        ].map(([c, t, d]) => `<div class="card"><span class="dot" style="background:var(${c})"></span><h3>${t}</h3><p>${d}</p></div>`).join("")}
-      </section>`;
-    $$(".hero [data-go]").forEach((b) => b.addEventListener("click", () => go(b.dataset.go)));
-    $("#hero-search").addEventListener("click", () => q.focus());
-    screenAdd([...UNIVERSE, ...watch.map((w) => w.path)]);
-    renderScreen();
+      <header class="home-head fade-in">
+        <h1>${hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening"}</h1>
+      </header>
+      <div class="home-one">
+        <section class="card fade-in">
+          <div class="card-head"><h2>Market news</h2>${info("market mood")}</div>          <div id="market"></div>
+        </section>
+      </div>`;
+    if (window.MarketNews) MarketNews.mount();
     if (HOOKS.home) HOOKS.home();
   }
 
@@ -448,7 +432,7 @@
             ${c.nse_symbol ? `<span class="pill">NSE: ${esc(c.nse_symbol)}</span>` : ""}
             ${c.bse_code ? `<span class="pill">BSE: ${esc(c.bse_code)}</span>` : ""}
             ${ind ? `<span>${esc(ind.name)}</span>` : ""}
-            <span class="faint">· ${c.consolidated ? "Consolidated" : "Standalone"} figures${info(c.consolidated ? "consolidated" : "standalone")}</span>
+            <span class="faint eb-basis">· ${c.consolidated ? "Consolidated" : "Standalone"} figures${info(c.consolidated ? "consolidated" : "standalone")}</span>
           </div>
           <h1>${esc(c.name)}</h1>
           <div class="head-actions">
@@ -510,7 +494,8 @@
       if (b) { thumbX.set(b.offsetLeft); thumbW.set(b.offsetWidth); }
       edges();
     };
-    $$("#seg button").forEach((b) => b.addEventListener("pointerdown", () => {
+    // "click", not "pointerdown": on a phone, touching the row to swipe it must not switch tabs.
+    $$("#seg button").forEach((b) => b.addEventListener("click", () => {
       if (S.tab === b.dataset.tab) return;
       S.tab = b.dataset.tab;
       $$("#seg button").forEach((x) => x.setAttribute("aria-selected", x === b));
@@ -523,7 +508,7 @@
       if (!/Arrow(Left|Right)/.test(e.key)) return;
       const i = TABS.findIndex(([k]) => k === S.tab) + (e.key === "ArrowRight" ? 1 : -1);
       const b = $$("#seg button")[(i + TABS.length) % TABS.length];
-      b.dispatchEvent(new PointerEvent("pointerdown")); b.focus();
+      b.click(); b.focus();
     });
     $("#cmp-go").addEventListener("click", () => { cmpAdd(c.name, c.path); location.hash = "#/compare"; });
     $("#watch").addEventListener("click", (e) => {
@@ -583,17 +568,23 @@
     const qt = T.quarters;
     const qRows = ["Sales", "Revenue", "Operating Profit", "OPM", "Financing Profit", "Net Profit", "EPS"]
       .map((l) => find(qt, l)).filter((r, i, a) => r && a.indexOf(r) === i);
-    const qCols = qt ? qt.headers.slice(-8) : [];
+    // On a phone the newest quarter comes first, so the latest results are visible without scrolling sideways.
+    const qNewestFirst = matchMedia("(max-width: 720px)").matches;
+    const qOrder = (a) => (qNewestFirst ? a.slice(-8).reverse() : a.slice(-8));
+    const qCols = qt ? qOrder(qt.headers) : [];
     const CHECK_G = { returns: S.score.isFin ? "roe" : "roce", sales: "cagr", profit: "cagr", debt: "debt to equity", cash: "cash conversion", promoter: "promoters", quarter: "yoy", price: "stock p/e" };
     const rowG = (l) => info(/^opm/i.test(l) ? "opm" : /^eps/i.test(l) ? "eps" : l);
     const tr = Score.trend(c);
     const note = store.get("sl-notes:" + c.path);
-    const growth = (c.growth || []).map((g) => `<div><div class="muted" style="font-size:.8125rem;margin-bottom:4px">${esc(g.title)}${info(/return on equity/i.test(g.title) ? "roe" : "cagr")}</div>${g.rows.map((r) => `<div style="display:flex;justify-content:space-between;font-size:.875rem"><span class="faint">${esc(r[0].replace(":", ""))}</span><b class="num">${esc(r[1])}</b></div>`).join("")}</div>`).join("");
+    const hasNote = note && ["why", "worry", "change"].some((k) => (note[k] || "").trim());
+    // Only show a date that is real (an empty or odd saved value printed "Invalid Date").
+    const noteAt = note && Number.isFinite(+note.at) && +note.at > 0 ? new Date(+note.at) : null;
+    const growth = (c.growth || []).map((g) => `<div><div class="muted" style="font-size:.8125rem;margin-bottom:4px">${esc(g.title.replace(/^Compounded\s+/i, "").replace(/^(\w)(.*)$/, (m, a, b) => a + b.toLowerCase()).replace(/cagr/i, "CAGR"))}${info(/return on equity/i.test(g.title) ? "roe" : "cagr")}</div>${g.rows.map((r) => `<div style="display:flex;justify-content:space-between;font-size:.875rem"><span class="faint">${esc(r[0].replace(":", ""))}</span><b class="num">${esc(r[1])}</b></div>`).join("")}</div>`).join("");
     const sc = S.score;
     const toneWord = { good: "Strong on these checks", medium: "Mixed picture", high: "Weak on these checks", info: "Not enough data" }[sc.tone];
     el.innerHTML = `<div class="grid">
       <div class="card"><div class="hc-head"><div><h2>Health check${info("health check")}</h2>
-          <p class="sub">The same 8 plain rules for every company, so you can compare like with like. A reading aid, not a rating or advice.</p></div>
+          <p class="sub ex">The same 8 plain rules for every company, so you can compare like with like. A reading aid, not a rating or advice.</p></div>
           <div class="hc-total tone-${sc.tone}"><b>${sc.passed}<span>/${sc.total}</span></b><small>${toneWord}</small></div></div>
         <div class="checks">${sc.checks.map((x) => `<div class="check ${x.status}">
           <div class="ic ${STATUS_ICON[x.status]}">${ICON[STATUS_ICON[x.status]]}</div>
@@ -602,15 +593,15 @@
       </div>
       <div class="grid g2">
         <div class="card"><div class="hc-head"><div><h2>Is it getting stronger?${info("piotroski")}</h2>
-            <p class="sub">${tr ? `Eight yes/no questions comparing ${esc(tr.to)} with ${esc(tr.from)}.` : "Trend score"}</p></div>
+            <p class="sub ex">${tr ? `Eight yes/no questions comparing ${esc(tr.to)} with ${esc(tr.from)}.` : "Trend score"}</p></div>
             ${tr ? `<div class="hc-total tone-${tr.tone}"><b>${tr.passed}<span>/${tr.total}</span></b></div>` : ""}</div>
           ${tr ? `<ul class="list trend">${tr.items.map((x) => `<li><span class="${x.pass == null ? "faint" : x.pass ? "tone-good" : "tone-high"}">${x.pass == null ? ICON.low : x.pass ? ICON.good : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'}</span><span>${esc(x.label)}</span><span class="faint num">${esc(x.detail)}</span></li>`).join("")}</ul>`
             : `<p class="muted">Not worked out for banks and lenders, or when yearly accounts are missing — these questions do not fit them.</p>`}
         </div>
-        <div class="card notes"><h2>My notes</h2><p class="sub">Write your own reasons before you decide. Saved only in this browser.</p>
+        <details class="card notes"${hasNote ? " open" : ""}><summary><h2>My notes</h2><span class="faint">${hasNote ? "" : "Tap to write"}</span></summary>
           ${[["why", "Why does this company interest me?"], ["worry", "What worries me?"], ["change", "What would change my mind?"]].map(([k, l]) => `<label>${l}<textarea data-note="${k}" rows="2" spellcheck="false">${esc((note && note[k]) || "")}</textarea></label>`).join("")}
-          <div class="faint" id="note-saved" style="font-size:.75rem">${note && note.at ? "Saved " + new Date(note.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}</div>
-        </div>
+          <div class="faint" id="note-saved" style="font-size:.75rem">${noteAt ? "Saved " + noteAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}</div>
+        </details>
       </div>
       <div class="tiles">${tiles}</div>
       <div class="grid g2">
@@ -619,7 +610,7 @@
           <p style="margin:0 0 12px">${esc(c.about || "No description available.")}</p>
           ${c.key_points ? `<div class="prose clamp" id="kp">${esc(c.key_points)}</div><button class="link-btn" id="kp-more" style="margin-top:6px">Show more</button>` : ""}
         </div>
-        <div class="card"><h2>Quick read</h2><p class="sub">Machine-generated checklist from Screener — a starting point, not a conclusion.</p>
+        <div class="card"><h2>Quick read</h2><p class="sub ex">Machine-generated checklist from Screener — a starting point, not a conclusion.</p>
           <ul class="list pc">
             ${c.pros.map((p) => `<li><span style="color:var(--good)">${ICON.good}</span><span>${esc(p)}</span></li>`).join("")}
             ${c.cons.map((p) => `<li><span style="color:var(--med)">${ICON.medium}</span><span>${esc(p)}</span></li>`).join("")}
@@ -631,15 +622,15 @@
         <div class="card"><h2>${esc(sales ? sales.label : "Sales")}</h2><p class="sub">₹ Crore, yearly${yrs.at(-1) === "TTM" ? " · last bar is trailing 12 months" + info("ttm") : ""}</p><div id="ch-sales"></div></div>
         <div class="card"><h2>Net profit</h2><p class="sub">₹ Crore, yearly. Losses show in red.</p><div id="ch-np"></div></div>
       </div>
-      ${qRows.length ? `<div class="card"><h2>Recent quarters</h2><p class="sub">₹ Crore unless marked %</p><div class="scroll-x"><table class="t">
-        <thead><tr><th></th>${qCols.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
-        <tbody>${qRows.map((r) => `<tr><td>${esc(r.label)}${rowG(r.label)}</td>${r.values.slice(-8).map((v) => `<td>${inr(v, 1)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>` : ""}
-      ${growth ? `<div class="card"><h2>Growth & returns</h2><p class="sub">Compounded annual rates</p><div class="grid g3" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${growth}</div></div>` : ""}
+      ${qRows.length ? `<div class="card"><h2>Recent quarters</h2><p class="sub">₹ Crore unless marked %${qNewestFirst ? " · newest first" : ""}</p><div class="scroll-x q-scroll"><table class="t q-table">
+        <thead><tr><th></th>${qCols.map((h, i) => `<th${qNewestFirst && i === 0 ? ' class="now"' : ""}>${esc(h)}</th>`).join("")}</tr></thead>
+        <tbody>${qRows.map((r) => `<tr><td>${esc(r.label.replace(/ in Rs$/, " (₹)"))}${rowG(r.label)}</td>${qOrder(r.values).map((v, i) => `<td${qNewestFirst && i === 0 ? ' class="now"' : ""}>${inr(v, 1)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>` : ""}
+      ${growth ? `<div class="card"><h2>Growth & returns</h2><p class="sub">Yearly compounded rates</p><div class="grid g3" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${growth}</div></div>` : ""}
       <div class="grid g2">
-        <div class="card"><h2>What the company is telling the exchange</h2><p class="sub">Latest filings on BSE</p>
-          <ul class="list">${(c.announcements || []).slice(0, 8).map((a) => `<li><a href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.title)}</a><div class="faint" style="font-size:.8125rem">${a.date ? new Date(a.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}${a.note ? " · " + esc(a.note) : ""}</div></li>`).join("") || '<li class="muted">None found.</li>'}</ul>
+        <div class="card"><h2>What the company is telling the exchange</h2><p class="sub ex">Latest filings on BSE</p>
+          <ul class="list">${(c.announcements || []).slice(0, 8).map((a) => `<li><a href="${esc(a.href)}" target="_blank" rel="noopener">${esc(a.title)}</a><div class="faint" style="font-size:.8125rem">${a.date ? (isNaN(new Date(a.date)) ? esc(String(a.date)) : new Date(a.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })) : ""}${a.note ? " · " + esc(a.note) : ""}</div></li>`).join("") || '<li class="muted">None found.</li>'}</ul>
         </div>
-        <div class="card"><h2>Source documents</h2><p class="sub">Primary sources to verify anything here</p>
+        <div class="card"><h2>Source documents</h2><p class="sub ex">Primary sources to verify anything here</p>
           ${docList("Annual reports", c.annual_reports)}${docList("Earnings calls" + info("concall"), c.concalls)}${docList("Credit ratings" + info("credit rating"), c.credit_ratings)}
         </div>
       </div></div>`;
@@ -694,7 +685,7 @@
     const epsCh = eps.length > 1 && eps[0][1] > 0 ? (eps[eps.length - 1][1] / eps[0][1] - 1) * 100 : null;
     el.innerHTML = `<div class="grid">
       <div id="pro-top"></div>
-      <div class="card" id="pchart"><div class="hc-head"><div><h2>Price</h2><p class="sub">Daily closing price with its 50-day and 200-day averages${info("moving average")}. Hover the chart for exact values.</p></div>
+      <div class="card" id="pchart"><div class="hc-head"><div><h2>Price</h2><p class="sub ex">Daily closing price with its 50-day and 200-day averages${info("moving average")}. Hover the chart for exact values.</p></div>
         <div class="seg mini" id="pr-seg">${RANGES.map(([k]) => `<button data-pr="${k}" aria-selected="${k === S.pr}">${k}</button>`).join("")}</div></div>
         <div id="ch-price"></div></div>
       <div class="tiles">
@@ -708,7 +699,7 @@
         ${dNow != null ? sig("delivery", "Delivery, last 4 weeks", dNow.toFixed(0) + "%", "", `1-year average ${dYear.toFixed(0)}% — ${dNow > dYear + 5 ? "more buying to hold than usual" : dNow < dYear - 5 ? "more short-term trading than usual" : "about normal"}`) : ""}
       </div>
       <div class="grid g2">
-        <div class="card"><h2>Returns against the market</h2><p class="sub">Price change only (dividends left out), next to the Nifty 50${info("nifty")}. The last column is how far ahead or behind the stock is.</p>
+        <div class="card"><h2>Returns against the market</h2><p class="sub ex">Price change only (dividends left out), next to the Nifty 50${info("nifty")}. The last column is how far ahead or behind the stock is.</p>
           <div class="scroll-x"><table class="t"><thead><tr><th>Period</th><th>${esc(shortName(c.name))}</th><th>Nifty 50</th><th>Difference</th></tr></thead><tbody>${retRows}</tbody></table></div>
           ${nf ? "" : `<div class="loading-line" style="margin-top:10px"><span class="spinner"></span>Loading the Nifty 50…</div>`}</div>
         <div class="card"><h2>Price against its own past</h2>
@@ -716,7 +707,7 @@
           <p class="sub">P/E${info("stock p/e")} over 5 years with its median${info("median pe")}.</p>
           <div id="ch-pe"></div>
           <p style="margin:12px 0 0;font-size:.9375rem">P/E is <b>${peNow.toFixed(1)}</b> today against a 5-year median of <b>${med != null ? med.toFixed(1) : "—"}</b>. It was lower than today for <b>${below}%</b> of the past 5 years.${epsCh != null ? ` Profit per share${info("eps")} went from ₹${inr(eps[0][1], 1)} to ₹${inr(eps[eps.length - 1][1], 1)} (${signed(epsCh, 0)}) in that time.` : ""}</p>
-          <p class="sub" style="margin:8px 0 0">A P/E below its own past can mean the share is cheaper than usual — or that the market expects profit to slow. This shows where it stands, not which one it is.</p>`}</div>
+          <p class="sub ex" style="margin:8px 0 0">A P/E below its own past can mean the share is cheaper than usual — or that the market expects profit to slow. This shows where it stands, not which one it is.</p>`}</div>
       </div>
       <div id="pro-bottom" class="grid g2"></div></div>`;
     const draw = () => {
@@ -757,7 +748,7 @@
     document.title = "Compare · Stock Lens";
     if (S.cy) { S.cy.destroy(); S.cy = null; }
     scrollTo({ top: 0 });
-    $("#view").innerHTML = `<div class="co-head fade-in"><div><h1>Compare</h1><p class="sub" style="margin:8px 0 0">Up to 4 companies side by side on the same checks. Comparing within one industry is fairest.</p></div></div>
+    $("#view").innerHTML = `<div class="co-head fade-in"><div><h1>Compare</h1><p class="sub ex" style="margin:8px 0 0">Up to 4 companies side by side on the same checks. Comparing within one industry is fairest.</p></div></div>
       <div class="card"><div id="cmp-pick"></div><div id="cmp-table"></div></div>`;
     renderCompare();
   }
@@ -792,7 +783,8 @@
           } catch (e) {}
         }, 150);
       });
-      res.addEventListener("pointerdown", (e) => { const b = e.target.closest("button[data-p]"); if (b) { e.preventDefault(); cmpAdd(b.dataset.n, b.dataset.p); renderCompare(); } });
+      res.addEventListener("mousedown", (e) => e.preventDefault());
+      res.addEventListener("click", (e) => { const b = e.target.closest("button[data-p]"); if (b) { cmpAdd(b.dataset.n, b.dataset.p); renderCompare(); } });
       cq.addEventListener("blur", () => setTimeout(() => res.classList.add("hidden"), 120));
     }
     if (!list.length) { box.innerHTML = `<div class="empty">Add two or more companies to compare them. You can also press “Compare” on any company page.</div>`; return; }
@@ -829,7 +821,7 @@
       ${row("Price, 3 years", null, retCell(1095))}
       ${row("Price, 5 years", null, retCell(1815))}
     </tbody></table></div>
-    <p class="sub" style="margin:14px 0 0">Green = passes the check, amber = watch, red = fails, grey = does not apply. Tap a company name to open its full page.</p>`;
+    <p class="sub ex" style="margin:14px 0 0">Green = passes the check, amber = watch, red = fails, grey = does not apply. Tap a company name to open its full page.</p>`;
   }
 
   /* ------------------------------------------------------------------ Owners & dealings */
@@ -849,12 +841,12 @@
     el.innerHTML = `<div class="grid">
       <div class="card"><h2>Who owns it</h2><p class="sub">% of shares by holder type, quarterly${nsh ? ` · ${inr(lastOf(nsh.values))} shareholders now` : ""}</p>
         <p class="sub">What the groups mean: Promoters${info("promoters")} · FIIs${info("fiis")} · DIIs${info("diis")} · Public${info("public")}</p><div id="ch-shp"></div></div>
-      <div class="card"><h2>Named shareholders</h2><p class="sub">Holders above 1% disclosed in the latest filing. Change is vs. 4 quarters ago. Tap a row for detail.</p>
+      <div class="card"><h2>Named shareholders</h2><p class="sub ex">Holders above 1% disclosed in the latest filing. Change is vs. 4 quarters ago. Tap a row for detail.</p>
         <div class="scroll-x"><table class="t"><thead><tr><th>Holder</th><th style="text-align:left">Type</th><th>Holds</th><th>1y change</th><th>Trend</th></tr></thead><tbody>${hRows || '<tr><td colspan="5" class="muted">No named holders disclosed.</td></tr>'}</tbody></table></div>
         ${(c.exited_holders || []).length ? `<p class="sub" style="margin:14px 0 0">Not in latest list (sold below 1%, exited, or renamed): ${c.exited_holders.map((h) => `${esc(h.name)} <span class="faint">(peak ${h.peak}%)</span>`).join(", ")}</p>` : ""}
       </div>
       <div class="card"><h2>Who it deals with — related parties${info("related party")}</h2>
-        <p class="sub">Parent, group companies, subsidiaries and insiders the company transacted with, extracted from annual reports. Amounts need a Screener login; the annual report has them.</p>
+        <p class="sub ex">Parent, group companies, subsidiaries and insiders the company transacted with, extracted from annual reports. Amounts need a Screener login; the annual report has them.</p>
         ${rp.length ? `<ul class="list">${rp.slice(0, S.rpAll ? rp.length : 25).map((p, i) => `<li style="display:flex;gap:12px;align-items:flex-start;cursor:pointer" data-rp="${i}">
             <span class="dot" style="background:var(--n-related);margin-top:7px"></span>
             <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b style="font-weight:600">${esc(p.name)}</b>${p.relation ? `<span class="pill">${esc(p.relation)}</span>` : ""}</div>
@@ -862,7 +854,7 @@
           ${rp.length > 25 ? `<button class="link-btn" id="rp-all" style="margin-top:8px">${S.rpAll ? "Show fewer" : `Show all ${rp.length}`}</button>` : ""}`
           : '<p class="muted">No related-party data extracted for this company.</p>'}
       </div>
-      <div class="card"><h2>Peers${info("peers")}</h2><p class="sub">Companies in the same industry, by Screener. Tap to compare.</p>
+      <div class="card"><h2>Peers${info("peers")}</h2><p class="sub ex">Companies in the same industry, by Screener. Tap to compare.</p>
         <div class="scroll-x"><table class="t"><thead><tr><th>Company</th><th>Price ₹</th><th>P/E${info("stock p/e")}</th><th>Mcap ₹ Cr${info("market cap")}</th><th>Div yld %${info("dividend yield")}</th><th>Qtr profit var %${info("qtr profit var")}</th><th>ROCE %${info("roce")}</th></tr></thead><tbody>
         ${(c.peers || []).map((p, i) => `<tr data-peer="${i}" style="cursor:pointer;${p.path === c.path ? "font-weight:600" : ""}"><td>${esc(p.name)}</td><td>${inr(p["CMP Rs."], 1)}</td><td>${inr(p["P/E"], 1)}</td><td>${inr(p["Mar Cap Rs.Cr."])}</td><td>${inr(p["Div Yld %"], 2)}</td><td style="color:${p["Qtr Profit Var %"] < 0 ? "var(--high)" : "inherit"}">${inr(p["Qtr Profit Var %"], 1)}</td><td>${inr(p["ROCE %"], 1)}</td></tr>`).join("")}
         </tbody></table></div></div>
@@ -894,7 +886,7 @@
     const inter = Object.values(shared).filter((x) => x.people.length >= 2).sort((a, b) => b.people.length - a.people.length);
     const newsFor = (d) => S.news["p:" + d.din];
     el.innerHTML = `<div class="grid">
-      <div class="card"><h2>Registry record</h2><p class="sub">Ministry of Corporate Affairs data via ZaubaCorp — can lag the latest filings.</p>
+      <div class="card"><h2>Registry record</h2><p class="sub ex">Ministry of Corporate Affairs data via ZaubaCorp — can lag the latest filings.</p>
         <dl class="kv" style="grid-template-columns:auto 1fr auto 1fr">
           <dt>CIN${info("cin")}</dt><dd style="text-align:left" class="num">${esc(P.cin)}</dd>
           <dt>Status</dt><dd style="text-align:left">${P.status ? badge(/^active$/i.test(P.status) ? "good" : "high", P.status) : "—"}</dd>
@@ -930,7 +922,7 @@
           </div>`;
         }).join("")}
       </div>
-      ${inter.length ? `<div class="card"><h2>Shared boards${info("shared boards")}</h2><p class="sub">Other companies where two or more of these directors sit together — the tightest links in the group.</p>
+      ${inter.length ? `<div class="card"><h2>Shared boards${info("shared boards")}</h2><p class="sub ex">Other companies where two or more of these directors sit together — the tightest links in the group.</p>
         <ul class="list">${inter.slice(0, 15).map((x, i) => `<li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><a href="#" data-inter="${i}" style="text-transform:capitalize">${esc(tc(x.name))}</a><span class="muted" style="font-size:.875rem">${esc(x.people.join(", "))}</span></li>`).join("")}</ul></div>` : ""}
       ${(P.past_officers || []).length ? `<div class="card"><h2>Former directors & officers</h2><p class="sub">${P.past_officers.length} people who have left the board or key roles over the company's life.</p>
         <div class="tagrow">${P.past_officers.slice(0, 40).map((o) => `<span class="pill" title="${esc(o.role || "")}">${esc(tc(o.name))}</span>`).join("")}</div></div>` : ""}
@@ -955,7 +947,7 @@
     [1, /\b(approv\w*|nod|clearance|licen[cs]e granted)\b|\blifts? (curbs?|ban|restrictions?)|\bcurbs? (lifted|removed|eased)/i, "approval"],
     [1, /\bbuyback\b|\bbonus (issue|shares)|\b(special |interim |final )?dividend\b|\bstock split\b/i, "shareholder payout"],
     [1, /\b(acquir|expan|launch)\w*|\bpartnership\b|\btie.?up\b|\bjoint venture\b|\bnew (plant|facility|capacity)|\braises? .{0,30}(crore|funds|capital)|\bfund.?rais\w*/i, "growth move"],
-    [1, /\b(hikes?|raises?|increases?|ups?) (stake|holding)|\b(buys?|bought|picks? up|acquires) .{0,20}\bstake|\bstake (hike|increase|buy)/i, "someone buying stake"],
+    [1, /\b(hikes?|raises?|increases?|ups?) (stake|holding)|\b(buys?|bought|picks? up|acquires) .{0,20}\bstake|\bstake (hike|increase|buy)|\bstake (rises|climbs|hits|crosses|reaches) \d|\bopen offer\b/i, "someone buying stake"],
     [-2, /\b(exit|exits|exiting|offload\w*|dump\w*|sells?|sold|selling|trims?|trimmed|pares?|cuts?) .{0,30}\b(stake|holding|shares)|\bstake sale\b|\bblock deal\b.{0,40}\b(sell|exit)|\bexit\w*\b.{0,60}\b(block deal|sale)\b|\boffer for sale\b|\bOFS\b/i, "big holder selling"],
     [-1, /\b(curbs?|ban|bans|banned|restrict\w*|embargo)\b|\bsuspend\w*/i, "restriction"],
     [-1, /\b(concerns?|worr(y|ies)|warns?|warning|headwinds?|pressure|stress|slowdown|uncertain\w*)\b|\bcuts? (guidance|forecast|outlook)/i, "concern"],
@@ -1013,12 +1005,12 @@
     const ichip = (k, label, n, cls = "") => `<button class="chip press ${cls} ${imp === k ? "on" : ""}" data-imp="${k}">${label}${n != null ? ` <span style="opacity:.6">${n}</span>` : ""}</button>`;
     const sorted = imp === "pos" ? [...list].sort((a, b) => b.im.score - a.im.score || b.ts - a.ts) : imp === "neg" ? [...list].sort((a, b) => a.im.score - b.im.score || b.ts - a.ts) : list;
     el.innerHTML = `<div class="card">
-      <h2>What's happening</h2><p class="sub">Last 12 months from Google News for the company, its key people and main promoters. Flags and impact come from simple keyword rules — always read the article.</p>
+      <h2>What's happening</h2><p class="sub ex">Last 12 months from Google News for the company, its key people and main promoters. Flags and impact come from simple keyword rules — always read the article.</p>
       <div class="filters">${chip("all", "All", all.length)}${groups.map((g) => chip(g.key, g.label, g.items.length)).join("")}
         <button class="chip press ${S.flaggedOnly ? "on" : ""}" id="nf-flag">${ICON.high} Flagged only</button></div>
       <div class="filters impact-row"><span class="impact-lbl">Price impact ${info("news impact")}</span>
         ${ichip("any", "Any")}${ichip("pos", "▲ Likely positive", nImp("pos"), "imp-pos")}${ichip("neg", "▼ Likely negative", nImp("neg"), "imp-neg")}${ichip("mixed", "Mixed or unclear", nImp("mixed") + nImp("none"))}</div>
-      ${imp === "pos" || imp === "neg" ? `<p class="sub" style="margin:-4px 0 6px">Strongest first. Hover a badge to see which words decided it.</p>` : ""}
+      ${imp === "pos" || imp === "neg" ? `<p class="sub ex" style="margin:-4px 0 6px">Strongest first. Hover a badge to see which words decided it.</p>` : ""}
       ${loading ? `<div class="loading-line" style="margin-bottom:8px"><span class="spinner"></span>Gathering more headlines…</div>` : ""}
       <div>${sorted.length ? sorted.slice(0, 120).map((x) => `<div class="news-item"><div class="when">${ago(x.ts)}</div><div style="min-width:0">
           <a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
@@ -1042,7 +1034,7 @@
         ${[["high", "High"], ["medium", "Medium"], ["low", "Low"], ["good", "Strengths"]].map(([l, t]) => `<div class="tile"><div class="k">${badge(l, t)}</div><div class="v">${cnt(l)}</div></div>`).join("")}
       </div>
       ${waiting ? `<div class="loading-line"><span class="spinner"></span>Still checking people and news — more items may appear.</div>` : ""}
-      <div class="card"><h2>Things to look into</h2><p class="sub">Rule-based checks on public data, each with its evidence. These are prompts for your own research, not ratings or advice.</p>
+      <div class="card"><h2>Things to look into</h2><p class="sub ex">Rule-based checks on public data, each with its evidence. These are prompts for your own research, not ratings or advice.</p>
         ${bad.length ? bad.map(row).join("") : '<div class="empty">No warning signs from these checks.</div>'}</div>
       ${good.length ? `<div class="card"><h2>Strengths</h2>${good.map(row).join("")}</div>` : ""}
       <div class="card"><h2>What this can't see</h2><p class="sub">Free public data has blind spots. Check these yourself before deciding anything:</p>
@@ -1122,7 +1114,7 @@
       <div id="cy" role="img" aria-label="Network of the company, its owners, people, related parties and peers"></div>
       <div class="net-hint">${S.people ? "Tap any dot for details · drag to rearrange · scroll to zoom" : "Loading directors — people will appear shortly…"}</div>
     </div>
-    <p class="sub" style="margin-top:10px">Sized by importance. Owners point to the company with their stake. People link to the other companies where they're directors — the grey dots show who else this leadership is tied to.</p>`;
+    <p class="sub ex" style="margin-top:10px">Sized by importance. Owners point to the company with their stake. People link to the other companies where they're directors — the grey dots show who else this leadership is tied to.</p>`;
     $$("[data-net]", el).forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.net;
       S.net[k] = !S.net[k];
@@ -1502,8 +1494,11 @@
       const show = (items) => {
         if (tok !== sheetTok) return;
         const fl = items.filter((i) => i.risk >= 2).length;
+        items.forEach((x) => (x.im = newsImpact(x)));
+        const top = items.slice(0, 10), np = top.filter((x) => x.im.dir === "pos").length, nn = top.filter((x) => x.im.dir === "neg").length;
         box.innerHTML = `<div class="section-title" style="font-size:1rem;margin-top:14px">In the news ${fl ? badge(items.some((i) => i.risk === 3) ? "high" : "medium", fl + " flagged") : items.length ? badge("good", "Nothing flagged") : ""}</div>
-          ${items.slice(0, 10).map((x) => `<div class="news-item" style="padding:10px 0"><div class="when">${ago(x.ts)}</div><div style="min-width:0"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="font-size:.875rem">${esc(x.title)}</a><div class="meta">${esc(x.source)} ${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("") || '<p class="muted" style="font-size:.875rem">No headlines in the last year.</p>'}`;
+          ${np || nn ? `<div class="sh-impact"><span class="impact pos">▲ ${np} likely positive</span><span class="impact neg">▼ ${nn} likely negative</span>${info("news impact")}</div>` : ""}
+          ${top.map((x) => `<div class="news-item" style="padding:10px 0"><div class="when">${ago(x.ts)}</div><div style="min-width:0"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="font-size:.875rem">${esc(x.title)}</a><div class="meta">${impactBadge(x.im)}${esc(x.source)} ${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("") || '<p class="muted" style="font-size:.875rem">No headlines in the last year.</p>'}`;
       };
       if (cachedKey && S.news[cachedKey] && !S.news[cachedKey].loading) show(S.news[cachedKey].items);
       else {
@@ -1517,5 +1512,5 @@
   }
 
   // Shared with pro.js (portfolio, custom screener, financials, fair value…), which calls SL.start() once loaded.
-  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
+  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, EXAMPLES, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
 })();

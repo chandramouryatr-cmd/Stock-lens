@@ -5,7 +5,8 @@ import json
 import os
 import time
 
-DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache")
+# STOCK_LENS_CACHE lets the phone app keep its cache in the app's own writable folder.
+DIR = os.environ.get("STOCK_LENS_CACHE") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache")
 os.makedirs(DIR, exist_ok=True)
 
 HOUR = 3600

@@ -17,6 +17,18 @@ On Windows you can also double-click **`start.bat`**. It opens at http://127.0.0
 
 Keyboard: press `/` to search, `Esc` to close the side panel or an explanation.
 
+## Android app
+
+`android/` builds a phone app that runs the same Python server **on the phone itself** (Chaquopy embeds Python 3.10). It shows the pages in a full-screen view, so it needs no PC and no shared Wi-Fi. The build copies `app/` and `static/` in fresh each time, so there is still only one copy of the code to edit.
+
+```
+cd android
+gradlew assembleDebug          # needs Android Studio's JDK (set JAVA_HOME to its jbr folder)
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Links to articles and filings open in the phone's browser. Back closes the details panel first. The phone app has no Anthropic SDK, so questions to Claude are off there; **Meaning** still works. CSV downloads don't work inside the app yet.
+
 ## Company page
 
 | Tab | What it answers | Source |
@@ -27,7 +39,7 @@ Keyboard: press `/` to search, `Esc` to close the side panel or an explanation.
 | **Network** | One map: company → owners → related parties → directors → the other companies those directors run, plus peers | Screener.in + ZaubaCorp |
 | **People** | Every director and key manager: role, tenure, how many boards they sit on, which other companies, and shared boards | ZaubaCorp (Ministry of Corporate Affairs records) |
 | **Owners & dealings** | Promoter / FII / DII / public trend, named shareholders with 1-year change, related parties the company transacts with, peers | Screener.in |
-| **News** | Last 12 months of headlines for the company, its key people and main promoters, plus a 3-year risk-scan search, each auto-tagged | Google News RSS |
+| **News** | Last 12 months of headlines for the company, its key people and main promoters, plus a 3-year risk-scan search, each auto-tagged and marked likely positive / negative for the share price (filterable; hover a badge for the words that decided it) | Google News RSS |
 | **Risks** | Rule-based checks on debt, cash, ownership, margins, valuation, related parties, directors and news, each with its evidence | All of the above |
 
 Small **i** buttons next to technical terms open a plain-English meaning.
@@ -45,7 +57,8 @@ Select any text on a page and a small bar appears: **Meaning** explains the term
 
 | Page | What it does |
 |---|---|
-| **Home** | Health-check screen of 40 large NSE companies, your watchlist and recently opened companies, and "since you last checked" changes on the watchlist (price moves of 3% or more, new results, new filings, health-check changes) |
+| **Home** | **Market news**: the last two days of India and world headlines (markets, RBI and economy, foreign money and rupee, oil, global markets, trade and conflict) split into **Positive** and **Negative for Indian stocks** tabs, each with the reason and which sectors feel it most, plus an overall mood count. Also your watchlist, recently opened companies, and "since you last checked" changes on the watchlist (price moves of 3% or more, new results, new filings, health-check changes) |
+| **Watchlist** | The companies you follow with the live price and today's change (Yahoo Finance, refreshed every minute while open). **Price targets**: tap "Set target" under a stock; you get a notification when the price reaches it (PC: while Stock Lens is open in the browser; phone app: also when the app is closed, checked about every 15 minutes). Home shows 3, then "Show more" |
 | **Screener** | Your own rules (12 filters, 6 presets) over the Nifty 50, 100, 200 or 500, sortable, with CSV download |
 | **Portfolio** | Enter holdings to see gain or loss, the split by industry, and warning signs on concentration and business health, with CSV download |
 | **Compare** | Up to 4 companies side by side on every health check, the trend score and price returns |

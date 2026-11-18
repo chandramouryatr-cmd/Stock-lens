@@ -2,6 +2,7 @@
 window.Glossary = {
   "market cap": ["Market cap", "The price of buying the whole company at today's share price: share price × number of shares. It tells you how big the company is."],
   "news impact": ["Price impact (news)", "A quick guess at whether a headline is good or bad news for the share price, made by matching words. Words like 'jumps', 'record profit', 'order win' or 'upgrade' count as positive; 'slumps', 'loss', 'stake sale', 'probe' or 'downgrade' count as negative. Words describing the share's actual move count double. Market round-ups (Sensex, Nifty) get half weight. It cannot read the article or know what the market already expected, so treat it as a sorting aid, not a prediction. Hover a badge to see the exact words."],
+  "market mood": ["Market mood", "A head count of today's headlines: how many read as good for Indian shares against how many read as bad. 'Mostly positive' means at least 3 more good than bad. It is a count of news, not a measure of how the market will actually move. Big, already-expected news can have no effect at all."],
   "current price": ["Current price", "The latest price of one share on the stock exchange."],
   "high / low": ["52-week high / low", "The highest and lowest share price in the past one year. It shows how far the price has swung."],
   "stock p/e": ["P/E (price to earnings)", "Share price divided by profit per share. A P/E of 20 means you pay ₹20 for every ₹1 of yearly profit. A high P/E means buyers expect profit to grow fast; a low P/E means they expect little, or see a problem."],

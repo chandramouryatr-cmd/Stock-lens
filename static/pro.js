@@ -72,9 +72,10 @@
         } catch (e) {}
       }, 150);
     });
-    res.addEventListener("pointerdown", (e) => {
+    res.addEventListener("mousedown", (e) => e.preventDefault()); // keep the box focused while tapping
+    res.addEventListener("click", (e) => { // a real tap only, not the start of a scroll
       const b = e.target.closest("button[data-p]");
-      if (b) { e.preventDefault(); res.classList.add("hidden"); onPick({ name: b.dataset.n, path: b.dataset.p }); }
+      if (b) { res.classList.add("hidden"); onPick({ name: b.dataset.n, path: b.dataset.p }); }
     });
     input.addEventListener("blur", () => setTimeout(() => res.classList.add("hidden"), 120));
   }
@@ -99,7 +100,7 @@
   PAGES["/portfolio"] = (view) => {
     document.title = "Portfolio · Stock Lens";
     let picked = null;
-    view.innerHTML = `<div class="co-head fade-in"><div><h1>Portfolio</h1><p class="sub" style="margin:8px 0 0">Enter what you hold to see gain or loss, where the money sits, and warning signs. Saved only in this browser — nothing is sent anywhere.</p></div></div>
+    view.innerHTML = `<div class="co-head fade-in"><div><h1>Portfolio</h1><p class="sub ex" style="margin:8px 0 0">Enter what you hold to see gain or loss, where the money sits, and warning signs. Saved only in this browser — nothing is sent anywhere.</p></div></div>
       <div class="grid"><div class="tiles" id="pf-tiles"></div>
       <div class="card"><h2>Holdings</h2>
         <form class="pf-form" id="pf-form"><span class="cmp-add"><input id="pf-q" type="search" placeholder="Company…" autocomplete="off" spellcheck="false" required><div class="results hidden" id="pf-res"></div></span>
@@ -107,8 +108,8 @@
           <input id="pf-buy" type="number" min="0" step="any" placeholder="Avg buy price ₹" required>
           <button class="btn" type="submit">Add holding</button><span class="err" id="pf-err"></span></form>
         <div id="pf-table"></div></div>
-      <div class="grid g2"><div class="card"><h2>Where the money sits${info("allocation")}</h2><p class="sub">Share of today's value by industry.</p><div id="pf-alloc"></div></div>
-        <div class="card"><h2>Things to look at</h2><p class="sub">Simple rules on spread and business health. Prompts for your own thinking, not advice.</p><div id="pf-warn"></div></div></div></div>`;
+      <div class="grid g2"><div class="card"><h2>Where the money sits${info("allocation")}</h2><p class="sub ex">Share of today's value by industry.</p><div id="pf-alloc"></div></div>
+        <div class="card"><h2>Things to look at</h2><p class="sub ex">Simple rules on spread and business health. Prompts for your own thinking, not advice.</p><div id="pf-warn"></div></div></div></div>`;
     picker($("#pf-q"), $("#pf-res"), (x) => { picked = x; $("#pf-q").value = shortName(x.name); $("#pf-qty").focus(); });
     $("#pf-q").addEventListener("input", () => { picked = null; });
     $("#pf-form").addEventListener("submit", (e) => {
@@ -209,14 +210,14 @@
   PAGES["/screener"] = (view) => {
     document.title = "Screener · Stock Lens";
     let F = obj("sl-filters");
-    view.innerHTML = `<div class="co-head fade-in"><div><h1>Screener</h1><p class="sub" style="margin:8px 0 0">Set your own rules and see which companies meet all of them. A filter only narrows the list — read each company before deciding anything.</p></div></div>
+    view.innerHTML = `<div class="co-head fade-in"><div><h1>Screener</h1><p class="sub ex" style="margin:8px 0 0">Set your own rules and see which companies meet all of them. A filter only narrows the list — read each company before deciding anything.</p></div></div>
       <div class="grid"><div class="card"><h2>1 · Which companies to search${info("index")}</h2>
           <div class="filters" id="sx-uni">${UNIS.map(([k, l]) => `<button class="chip press" data-uni="${k}">${l}</button>`).join("")}</div>
-          <p class="sub" style="margin:0">Bigger lists take longer the first time (the Nifty 500 needs about 5 minutes). After that they open at once for 12 hours.</p></div>
-        <div class="card"><h2>2 · Your rules</h2><p class="sub">Leave a box empty to ignore that rule. Or start from a ready-made set:</p>
+          <p class="sub ex" style="margin:0">Bigger lists take longer the first time (the Nifty 500 needs about 5 minutes). After that they open at once for 12 hours.</p></div>
+        <div class="card"><h2>2 · Your rules</h2><p class="sub ex">Leave a box empty to ignore that rule. Or start from a ready-made set:</p>
           <div class="filters">${PRESETS.map(([l], i) => `<button class="chip press" data-preset="${i}">${l}</button>`).join("")}<button class="chip press" data-preset="-1">Clear all</button></div>
           <div class="fgrid">${FILTERS.map(([k, l, , g]) => `<label><span>${l}${info(g)}</span><input type="number" step="any" data-f="${k}" inputmode="decimal"></label>`).join("")}</div>
-          <p class="sub" style="margin:12px 0 0">Banks and lenders have no debt figure here, so a debt rule leaves them out.</p></div>
+          <p class="sub ex" style="margin:12px 0 0">Banks and lenders have no debt figure here, so a debt rule leaves them out.</p></div>
         <div class="card"><div id="sx-res"></div></div></div>`;
     const fill = () => $$("[data-f]").forEach((i) => { i.value = F[i.dataset.f] != null ? F[i.dataset.f] : ""; });
     const markUni = () => $$("[data-uni]").forEach((b) => b.classList.toggle("on", b.dataset.uni === X.uni));
@@ -281,11 +282,18 @@
     const c = S.company;
     S.fin = S.fin || "profit-loss";
     const t = c.tables[S.fin];
-    el.innerHTML = `<div class="card"><div class="hc-head"><div><h2>Financial statements</h2><p class="sub">Every year Screener has on record, in ₹ Crore unless marked %. ${c.consolidated ? "Consolidated" : "Standalone"} figures${info(c.consolidated ? "consolidated" : "standalone")}. Tap an “i” for what a row means.</p></div>
+    el.innerHTML = `<div class="card"><div class="hc-head"><div><h2>Financial statements</h2><p class="sub ex">Every year Screener has on record, in ₹ Crore unless marked %. ${c.consolidated ? "Consolidated" : "Standalone"} figures${info(c.consolidated ? "consolidated" : "standalone")}. Tap an “i” for what a row means.</p></div>
         <button class="btn secondary" id="fin-csv">Download all (CSV)</button></div>
       <div class="seg mini" style="margin-bottom:14px">${STATEMENTS.map(([k, l]) => `<button data-fin="${k}" aria-selected="${k === S.fin}">${l}</button>`).join("")}</div>
-      ${t && t.rows.length ? `<div class="scroll-x"><table class="t"><thead><tr><th></th>${t.headers.map((h) => `<th>${esc(h)}</th>`).join("")}<th>Trend</th></tr></thead>
-        <tbody>${t.rows.map((r) => `<tr><td>${esc(cleanLabel(r.label))}${info(gKey(r.label))}</td>${r.values.map((v) => `<td class="${v < 0 ? "tone-high" : ""}">${v == null ? "" : inr(v, Math.abs(v) < 100 ? 1 : 0)}</td>`).join("")}<td>${Charts.micro(r.values)}</td></tr>`).join("")}</tbody></table></div>`
+      ${t && t.rows.length ? (() => {
+        // Phone: newest year first (with the trend line next to it), so the latest numbers show without scrolling.
+        const nf = matchMedia("(max-width: 720px)").matches;
+        const ord = (a) => (nf ? [...a].reverse() : a);
+        const now = (i) => (nf && i === 0 ? " now" : "");
+        const trendTh = `<th>Trend</th>`, trendTd = (r) => `<td>${Charts.micro(r.values)}</td>`;
+        return `<div class="scroll-x"><table class="t"><thead><tr><th></th>${nf ? trendTh : ""}${ord(t.headers).map((h, i) => `<th class="${now(i)}">${esc(h)}</th>`).join("")}${nf ? "" : trendTh}</tr></thead>
+        <tbody>${t.rows.map((r) => `<tr><td>${esc(cleanLabel(r.label).replace(/ in Rs$/, " (₹)"))}${info(gKey(r.label))}</td>${nf ? trendTd(r) : ""}${ord(r.values).map((v, i) => `<td class="${v < 0 ? "tone-high" : ""}${now(i)}">${v == null ? "" : inr(v, Math.abs(v) < 100 ? 1 : 0)}</td>`).join("")}${nf ? "" : trendTd(r)}</tr>`).join("")}</tbody></table></div>`;
+      })()
         : `<p class="muted">Not available for this company.</p>`}</div>`;
     $$("[data-fin]", el).forEach((b) => b.addEventListener("click", () => { S.fin = b.dataset.fin; XTABS.fin(el); }));
     $("#fin-csv", el).addEventListener("click", () => {
@@ -353,7 +361,7 @@
     S.fv = S.fv && S.fv.path === c.path ? S.fv : { path: c.path, g: Math.round(clamp(m.p5 != null ? Math.min(m.p5, 20) : 10, 3, 20)), pe: Math.round(clamp((S.val && S.val.median_pe) || m.pe || 20, 8, 35)), r: 12 };
     const fv = S.fv;
     const slider = (k, label, key, min, max, unit) => `<label class="slider"><span>${label}${info(key)}</span><b class="num" id="fv-${k}-v">${fv[k]}${unit}</b><input type="range" min="${min}" max="${max}" step="1" value="${fv[k]}" data-fv="${k}" data-unit="${unit}"></label>`;
-    box.innerHTML = `<h2>Fair-value calculator${info("fair value")}</h2><p class="sub">Your own guesses in, a rough worth out. Starting values come from the company's past; move them to see how much the answer swings.</p>
+    box.innerHTML = `<h2>Fair-value calculator${info("fair value")}</h2><p class="sub ex">Your own guesses in, a rough worth out. Starting values come from the company's past; move them to see how much the answer swings.</p>
       ${slider("g", "Profit growth a year, next 10 years", "cagr", 0, 35, "%")}${slider("pe", "P/E after 10 years", "exit pe", 5, 60, "")}${slider("r", "Return you want a year", "required return", 8, 20, "%")}
       <div id="fv-out"></div>
       <p class="sub" style="margin:10px 0 0">Based on profit per share${info("eps")} of ₹${inr(eps, 1)} today. Dividends are left out. A calculator, not a price target.</p>`;
@@ -403,45 +411,35 @@
     dividends($("#pro-div"));
   };
 
-  /* ================================================================== What changed on the watchlist */
-  HOOKS.home = () => {
-    const draw = () => {
-      const box = $("#changes");
-      if (!box) return;
-      const watch = store.get("sl-watch"), snap = obj("sl-snap");
-      if (!watch.length) { box.innerHTML = ""; return; }
-      const items = [];
-      let fresh = false, oldest = Date.now(), ready = 0;
-      const now = (r) => ({ at: Date.now(), price: r.score.m.price, passed: r.score.passed, total: r.score.total, ann: r.ann ? r.ann.date : null, quarter: r.quarter });
-      watch.forEach((w) => {
-        const r = SCR.rows.get(w.path);
-        if (!r || r.state !== "ok") return;
-        ready++;
-        const s = snap[w.path];
-        if (!s) { snap[w.path] = now(r); fresh = true; return; }
-        oldest = Math.min(oldest, s.at);
-        const ch = [];
-        if (s.price && r.score.m.price) { const p = (r.score.m.price / s.price - 1) * 100; if (Math.abs(p) >= 3) ch.push(`<span class="${tone(p)}">Price ${p > 0 ? "▲" : "▼"} ${Math.abs(p).toFixed(1)}%</span> <span class="faint">(₹${inr(s.price)} → ₹${inr(r.score.m.price)})</span>`); }
-        if (r.quarter && s.quarter && r.quarter !== s.quarter) ch.push(`New quarterly results: <b>${esc(r.quarter)}</b>`);
-        if (s.passed != null && (r.score.passed !== s.passed || r.score.total !== s.total)) ch.push(`Health checks ${s.passed}/${s.total} → <b>${r.score.passed}/${r.score.total}</b>`);
-        if (r.ann && r.ann.date && r.ann.date !== s.ann) ch.push(`New exchange filing: ${esc(r.ann.title)}`);
-        if (ch.length) items.push(`<li><a href="#/c${esc(r.go || w.path)}"><b>${esc(shortName(r.name))}</b></a><div class="chg">${ch.map((x) => `<div>${x}</div>`).join("")}</div></li>`);
-      });
-      if (fresh) store.set("sl-snap", snap);
-      box.innerHTML = `<section class="card fade-in" style="margin-bottom:16px"><div class="hc-head"><div><h2>Since you last checked your watchlist</h2>
-          <p class="sub">${ready < watch.length ? "Checking…" : items.length ? `Changes since ${dateStr(oldest)}.` : `Nothing notable has changed since ${dateStr(oldest)}.`} Watches price moves of 3% or more, new results, new filings and health-check changes.</p></div>
-          ${items.length ? `<button class="btn secondary" id="chg-seen">Mark all as seen</button>` : ""}</div>
-        ${items.length ? `<ul class="list">${items.join("")}</ul>` : ""}</section>`;
-      const b = $("#chg-seen");
-      if (b) b.addEventListener("click", () => {
-        const s2 = obj("sl-snap");
-        watch.forEach((w) => { const r = SCR.rows.get(w.path); if (r && r.state === "ok") s2[w.path] = now(r); });
-        store.set("sl-snap", s2); draw();
-      });
-    };
-    live = draw;
-    draw();
+  /* ================================================================== What changed on the watchlist
+     Compares each watched company with a snapshot taken when you last marked it as seen.
+     Used by static/watch.js to show the changes inside each watchlist row. */
+  const snapOf = (r) => ({ at: Date.now(), price: r.score.m.price, passed: r.score.passed, total: r.score.total, ann: r.ann ? r.ann.date : null, quarter: r.quarter });
+  SL.watchChanges = () => {
+    const watch = store.get("sl-watch"), snap = obj("sl-snap");
+    const byPath = {};
+    let fresh = false, oldest = Date.now(), ready = 0;
+    watch.forEach((w) => {
+      const r = SCR.rows.get(w.path);
+      if (!r || r.state !== "ok") return;
+      ready++;
+      const s = snap[w.path];
+      if (!s) { snap[w.path] = snapOf(r); fresh = true; return; }
+      oldest = Math.min(oldest, s.at);
+      const ch = [];
+      if (s.price && r.score.m.price) { const p = (r.score.m.price / s.price - 1) * 100; if (Math.abs(p) >= 3) ch.push(`Price ${p > 0 ? "up" : "down"} ${Math.abs(p).toFixed(1)}% since you checked`); }
+      if (r.quarter && s.quarter && r.quarter !== s.quarter) ch.push(`New quarterly results (${r.quarter})`);
+      if (s.passed != null && (r.score.passed !== s.passed || r.score.total !== s.total)) ch.push(`Health checks ${s.passed}/${s.total} → ${r.score.passed}/${r.score.total}`);
+      if (r.ann && r.ann.date && r.ann.date !== s.ann) ch.push(`New filing: ${r.ann.title}`);
+      if (ch.length) byPath[w.path] = ch;
+    });
+    if (fresh) store.set("sl-snap", snap);
+    return { byPath, ready, total: watch.length, since: dateStr(oldest) };
   };
-
+  SL.markSeen = () => {
+    const s2 = obj("sl-snap");
+    store.get("sl-watch").forEach((w) => { const r = SCR.rows.get(w.path); if (r && r.state === "ok") s2[w.path] = snapOf(r); });
+    store.set("sl-snap", s2);
+  };
   SL.start();
 })();

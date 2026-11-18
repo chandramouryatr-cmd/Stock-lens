@@ -5,6 +5,13 @@ from urllib.parse import urlparse
 
 import requests
 
+# HTML parser for BeautifulSoup: lxml is faster; Python's built-in one is the fallback (e.g. on the phone).
+try:
+    import lxml  # noqa: F401
+    PARSER = "lxml"
+except ImportError:
+    PARSER = "html.parser"
+
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"

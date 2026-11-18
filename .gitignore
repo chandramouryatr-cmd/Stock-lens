@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 *.tmp
 anthropic-key.txt
+
+# Android app build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk

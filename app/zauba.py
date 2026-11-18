@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 
 from .cache import DAY, cached
-from .net import get_text
+from .net import PARSER, get_text
 
 Z = "https://www.zaubacorp.com"
 
@@ -135,7 +135,7 @@ def _rows(table):
 def company_profile(url):
     if not url.startswith(Z + "/"):
         raise ValueError("Bad url")
-    soup = BeautifulSoup(get_text(url), "lxml")
+    soup = BeautifulSoup(get_text(url), PARSER)
     ld = _ld_org(soup)
     desc = ld.get("description", "")
     cin = (ld.get("identifier") or {}).get("value") or (CIN_RE.search(url).group(1) if CIN_RE.search(url) else None)
@@ -172,7 +172,7 @@ def company_profile(url):
 def director(url):
     if not url.startswith(Z + "/"):
         raise ValueError("Bad url")
-    soup = BeautifulSoup(get_text(url), "lxml")
+    soup = BeautifulSoup(get_text(url), PARSER)
     about = ""
     h = soup.find(lambda t: t.name in ("h2", "h3", "h4", "h5") and t.get_text().strip().startswith("About"))
     if h:

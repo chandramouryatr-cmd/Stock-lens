@@ -216,6 +216,9 @@
   function showPop() {
     const s = getSelection();
     const text = s && !s.isCollapsed ? s.toString().replace(/\s+/g, " ").trim() : "";
+    // Text selected while typing in a box (search, notes, targets) is not a question about the page.
+    const ae = document.activeElement;
+    if (ae && ae.matches("input, textarea, [contenteditable]") && !pop.contains(ae)) { hidePop(); return; }
     if (!text || text.length > 600) { if (!inPop()) hidePop(); return; }
     const node = s.anchorNode && (s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement);
     if (!node || node.closest("#askp, #selpop, input, textarea, .toolbar, #ct-main, #ct-rsi")) return;
@@ -246,6 +249,11 @@
   });
 
   /* ---------------------------------------------------------------- start */
-  fetch("/api/ask-status").then((r) => r.json()).then((j) => { C.configured = !!j.configured; if (C.open) note(); }).catch(() => {});
+  fetch("/api/ask-status").then((r) => r.json()).then((j) => {
+    C.configured = !!j.configured;
+    // No Claude in this build (the phone app): keep "Meaning", hide the ask button, box and chat input.
+    document.body.classList.toggle("no-claude", j.available === false);
+    if (C.open) note();
+  }).catch(() => {});
   setOpen(C.open);
 })();

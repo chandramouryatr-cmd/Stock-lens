@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 
 from .cache import DAY, HOUR, cached
-from .net import get_json, get_text
+from .net import PARSER, get_json, get_text
 
 BASE = "https://www.screener.in"
 HOLDER_CATS = [
@@ -100,7 +100,7 @@ def _links_after(section, heading):
 def company(path, light=False):
     if not re.fullmatch(r"/company/[\w\-&.%]+/(consolidated/)?", path):
         raise ValueError("Bad company path")
-    soup = BeautifulSoup(get_text(BASE + path), "lxml")
+    soup = BeautifulSoup(get_text(BASE + path), PARSER)
     holder = soup.select_one("[data-company-id]")
     cid = holder["data-company-id"] if holder else None
     wid_el = soup.select_one("[data-warehouse-id]")
@@ -243,7 +243,7 @@ def _holders(cid, cat):
 
 
 def _peers(wid):
-    soup = BeautifulSoup(get_text(f"{BASE}/api/company/{wid}/peers/"), "lxml")
+    soup = BeautifulSoup(get_text(f"{BASE}/api/company/{wid}/peers/"), PARSER)
     heads = [clean(th.get_text()) for th in soup.select("th")]
     out = []
     for tr in soup.find_all("tr"):
@@ -261,7 +261,7 @@ def _peers(wid):
 
 def _related_parties(cid, consolidated):
     url = f"{BASE}/results/rpt/{cid}/" + ("consolidated/" if consolidated else "")
-    soup = BeautifulSoup(get_text(url), "lxml")
+    soup = BeautifulSoup(get_text(url), PARSER)
     parties, cur = [], None
     for tr in soup.find_all("tr"):
         td = tr.find("td")
@@ -381,6 +381,40 @@ def ohlc(symbol, view="daily"):
             continue
         rows.append([t, round(o, 2), round(h, 2), round(l, 2), round(c, 2), v or 0])
     return {"symbol": symbol, "view": view, "rows": rows}
+
+
+@cached(60)  # a minute old at most: the watchlist shows "what number is running"
+def _quote_one(symbol):
+    d = get_json(
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+        params={"range": "1d", "interval": "5m"},
+    )
+    meta = d["chart"]["result"][0].get("meta", {})
+    last, prev = meta.get("regularMarketPrice"), meta.get("chartPreviousClose") or meta.get("previousClose")
+    return {
+        "symbol": symbol, "price": last, "prev_close": prev,
+        "change_pct": round((last / prev - 1) * 100, 2) if last and prev else None,
+        "time": meta.get("regularMarketTime"),
+    }
+
+
+def quote(symbols):
+    """Latest price and today's change for up to 30 NSE (.NS) / BSE (.BO) symbols."""
+    syms = [s for s in (symbols or "").split(",") if s][:30]
+    if not syms or not all(re.fullmatch(r"[\w\-&.]+\.(NS|BO)|\^NSEI", s) for s in syms):
+        raise ValueError("Bad symbol")
+    out = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for s, r in zip(syms, ex.map(lambda s: _safe_quote(s), syms)):
+            out[s] = r
+    return out
+
+
+def _safe_quote(s):
+    try:
+        return _quote_one(s)
+    except Exception as e:  # one bad symbol should not hide the others
+        return {"symbol": s, "error": str(e)[:120]}
 
 
 @cached(HOUR)

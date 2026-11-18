@@ -5,10 +5,13 @@ anthropic-key.txt in the stock-lens folder (that file is git-ignored). The key n
 """
 import os
 
-import anthropic
+try:
+    import anthropic
+except ImportError:  # the phone app ships without the SDK; everything else still works
+    anthropic = None
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KEY_FILE = os.path.join(ROOT, "anthropic-key.txt")
+KEY_FILE = os.path.join(os.environ.get("STOCK_LENS_DATA") or ROOT, "anthropic-key.txt")
 MODEL = os.environ.get("STOCK_LENS_MODEL", "claude-opus-5-5")
 
 SYSTEM = """You are the helper inside Stock Lens, a personal research tool for Indian listed stocks (NSE/BSE) built on free public data: Screener.in, Ministry of Corporate Affairs records, Yahoo Finance and Google News.
@@ -31,7 +34,8 @@ def _key():
 
 
 def status():
-    return {"configured": bool(_key()), "model": MODEL}
+    # available=False: this build has no Anthropic SDK (the phone app), so the UI hides the Ask button.
+    return {"configured": bool(_key()), "model": MODEL, "available": anthropic is not None}
 
 
 def _clean(messages):
@@ -51,6 +55,8 @@ def _clean(messages):
 
 
 def ask(body):
+    if anthropic is None:
+        raise RuntimeError("Questions to Claude aren't available in this version (the Anthropic SDK isn't installed). Meaning still works for glossary terms.")
     key = _key()
     if not key:
         raise LookupError("NO_KEY")

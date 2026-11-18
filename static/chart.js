@@ -57,7 +57,7 @@
     const { esc, info } = SL;
     const intraday = () => st.range === "1D" || st.range === "5D";
     const tog = (k, label, key) => `<button class="toggle ct" data-ct="${k}" aria-pressed="${!!st[k]}">${label}</button>${key ? info(key) : ""}`;
-    box.innerHTML = `<div class="hc-head"><div><h2>Chart${info("candlestick")}</h2><p class="sub">Scroll or pinch to zoom, drag to move through time. Prices are delayed by about 15 minutes.</p></div>
+    box.innerHTML = `<div class="hc-head"><div><h2>Chart${info("candlestick")}</h2><p class="sub ex">Scroll or pinch to zoom, drag to move through time. Prices are delayed by about 15 minutes.</p></div>
         <div class="seg mini" id="ct-range">${RANGES.map(([k]) => `<button data-r="${k}" aria-selected="${k === st.range}">${k}</button>`).join("")}</div></div>
       <div class="ct-tools">
         <div class="seg mini" id="ct-type"><button data-t="candle" aria-selected="${st.type === "candle"}">Candles</button><button data-t="line" aria-selected="${st.type === "line"}">Line</button></div>
@@ -66,7 +66,7 @@
       </div>
       <div class="ct-wrap"><div class="ct-legend" id="ct-legend"></div><div id="ct-main"></div><div class="ct-msg" id="ct-msg"></div></div>
       <div id="ct-rsi-wrap" class="hidden"><div class="ct-sub">RSI (14) — above 70 has risen fast, below 30 has fallen fast</div><div id="ct-rsi"></div></div>
-      <p class="sub" style="margin:10px 0 0">Candle: green closed higher than it opened, red closed lower. The thin line shows the day's high and low. Chart drawn with <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts.</p>`;
+      <p class="sub ex" style="margin:10px 0 0">Candle: green closed higher than it opened, red closed lower. The thin line shows the day's high and low. Chart drawn with <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a> Lightweight Charts.</p>`;
     const $ = (s) => box.querySelector(s);
     const msg = (t) => { $("#ct-msg").textContent = t || ""; $("#ct-msg").classList.toggle("hidden", !t); };
 

@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 from . import ask, news, screener, zauba
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC = os.path.join(ROOT, "static")
+STATIC = os.environ.get("STOCK_LENS_STATIC") or os.path.join(ROOT, "static")
 PORT = int(os.environ.get("PORT", "8770"))
 
 
@@ -26,6 +26,8 @@ def route(path, qs):
         return screener.company(_one(qs, "path"), light=_one(qs, "light") == "1")
     if path == "/api/price":
         return screener.price(_one(qs, "symbol"), _one(qs, "range", "1y"))
+    if path == "/api/quote":
+        return screener.quote(_one(qs, "symbols", ""))
     if path == "/api/ask-status":
         return ask.status()
     if path == "/api/ohlc":
@@ -46,6 +48,8 @@ def route(path, qs):
         return screener.best_match(_one(qs, "name", ""))
     if path == "/api/news":
         return news.search(_one(qs, "q", ""), scan=_one(qs, "scan") == "1")
+    if path == "/api/market-news":
+        return news.market()
     raise LookupError("Unknown endpoint")
 
 
@@ -114,6 +118,31 @@ def _lan_ip():
         return "this-computer's-IP"
     finally:
         s.close()
+
+
+_bg = None
+_bg_lock = __import__("threading").Lock()
+
+
+def start_background(port=PORT):
+    """Used by the Android app: serve on this device only, in a background thread.
+    Safe to call twice, even at the same moment (the app can be opened twice quickly)."""
+    global _bg
+    import errno
+    import threading
+    with _bg_lock:
+        if _bg is None:
+            try:
+                srv = ThreadingHTTPServer(("127.0.0.1", int(port)), Handler)
+            except OSError as e:
+                # Already being served (e.g. by the app's previous run that is still closing): use that one.
+                if e.errno in (errno.EADDRINUSE, 98):
+                    return f"http://127.0.0.1:{int(port)}"
+                raise
+            srv.daemon_threads = True
+            threading.Thread(target=srv.serve_forever, name="stock-lens", daemon=True).start()
+            _bg = srv
+    return f"http://127.0.0.1:{int(port)}"
 
 
 def main():
