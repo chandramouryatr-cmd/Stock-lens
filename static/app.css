@@ -378,6 +378,68 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 .chip.sm.on { background: var(--text); color: var(--bg); }
 .linkish { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-size: 0.9375rem; cursor: pointer; }
 .page-narrow { max-width: 640px; margin: 24px auto 0; }
+.home-one { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.home-one > * { min-width: 0; }
+
+/* ---------- Markets card: sectors, commodities, F&O ---------- */
+.mk-head { justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.sec-seg { margin: 0; }
+.sec-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--sep); margin: 10px 0 8px; }
+.sec-tabs button { border: 0; background: none; padding: 8px 0; font: inherit; font-size: 0.9375rem; font-weight: 600; color: var(--text-3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.sec-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.sec-bench { font-size: 0.8125rem; color: var(--text-2); margin: 4px 0 6px; }
+.sec-bench b, .sec-pct.up, .sl-chip b.up, .vix .up { color: var(--good); }
+.sec-bench b.down, .sec-pct.down, .sl-chip b.down, .vix .down { color: var(--high); }
+.sec-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(70px, 1fr) 68px; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--sep); }
+.sec-list .sec-row:first-child { border-top: 0; }
+.sec-name { font-size: 0.9375rem; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec-name small { display: block; font-size: 0.75rem; font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.sec-name small span { color: var(--text-3); font-weight: 400; }
+.sec-bar { position: relative; height: 8px; border-radius: 4px; background: var(--fill); }
+.sec-bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--sep); }
+.sec-bar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--text-3); }
+.sec-bar i.up { background: var(--good); }
+.sec-bar i.down { background: var(--high); }
+.sec-pct { text-align: right; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.sec-gap { text-align: center; color: var(--text-3); letter-spacing: 3px; padding: 2px 0; border-top: 1px solid var(--sep); }
+.sec-note { font-size: 0.75rem; color: var(--text-3); margin: 10px 0 0; line-height: 1.45; }
+.vix { display: flex; justify-content: space-between; align-items: flex-end; padding: 6px 0 10px; }
+.vix-k { font-size: 0.8125rem; color: var(--text-2); display: flex; align-items: center; gap: 4px; }
+.vix-v { font: 700 2.25rem/1.1 var(--font-display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.vix-r { text-align: right; display: grid; gap: 3px; font-size: 0.875rem; }
+.vix-r b { font-size: 1.0625rem; }
+.vix-scale { position: relative; display: grid; grid-template-columns: 5fr 7fr 5fr 7fr; gap: 3px; font-size: 0.6875rem; color: var(--text-3); margin-top: 4px; padding-top: 12px; }
+.vix-scale::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--good), #ffcc00 40%, #ff9500 70%, var(--high)); opacity: 0.75; }
+.vix-scale i { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--text); }
+
+/* Screener section: "Screen stocks | Compare" switch at the top of both pages */
+.tool-switch { display: inline-flex; background: var(--fill); border-radius: 10px; padding: 3px; margin-top: 12px; }
+.tool-switch a { padding: 7px 16px; border-radius: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--text-2); }
+.tool-switch a:hover { text-decoration: none; color: var(--text); }
+.tool-switch a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-s); }
+.markets-page .sec-row { padding: 10px 0; }
+.markets-page [data-sall] { display: none; }
+
+/* News search boxes (Market news on Home, and a company's News tab) */
+.news-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; margin: 12px 0 4px; border-radius: 11px; background: var(--fill); color: var(--text-3); }
+.news-search:focus-within { background: var(--surface); box-shadow: 0 0 0 1px var(--sep), 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.news-search input { flex: 1; min-width: 0; border: 0; background: none; outline: 0; font: inherit; font-size: 0.9375rem; color: var(--text); }
+.nq-n { font-size: 0.8125rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.mk-seg button.all.on { color: var(--text); }
+.mk-meta .impact { margin-right: 4px; }
+
+/* Company page: today's move vs sector vs Nifty */
+.sector-line { margin-top: 8px; }
+.sector-line:empty { display: none; }
+.sl-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.sl-chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 3px 9px; border-radius: 999px; background: var(--fill); font-size: 0.8125rem; color: var(--text-2); }
+.sl-chip b { font-variant-numeric: tabular-nums; }
+.sl-verdict { font-size: 0.75rem; color: var(--text-3); margin-top: 4px; text-align: right; }
+@media (max-width: 720px) {
+  .co-head .price-box .sector-line { grid-column: 1 / -1; }
+  .sl-chips { justify-content: flex-start; }
+  .sl-verdict { text-align: left; }
+}
 
 /* ---------- Watchlist ---------- */
 .w-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }

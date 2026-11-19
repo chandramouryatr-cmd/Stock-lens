@@ -201,7 +201,7 @@
     closeSheet();
     hideInfo();
     // Highlight the current page in the top links and the phone's bottom tab bar.
-    const here = PAGES[h] || h === "/compare" ? h : h.startsWith("/c/") ? "" : "/";
+    const here = h === "/compare" ? "/screener" : PAGES[h] ? h : h.startsWith("/c/") ? "" : "/";
     $$(".tool-link, .tabbar a").forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + here));
     if (h.startsWith("/c/company/")) {
       const path = h.slice(2);
@@ -209,6 +209,12 @@
     } else if (h === "/compare") { S.path = null; S.token++; comparePage(); }
     else if (PAGES[h]) { S.path = null; S.token++; if (S.cy) { S.cy.destroy(); S.cy = null; } scrollTo({ top: 0 }); PAGES[h]($("#view")); }
     else { S.path = null; S.token++; home(); }
+  }
+
+  // Screener and Compare live in one section: this switch sits at the top of both pages.
+  function toolSwitch(active) {
+    const a = (k, href, label) => `<a href="${href}" class="${active === k ? "on" : ""}"${active === k ? ' aria-current="page"' : ""}>${label}</a>`;
+    return `<nav class="tool-switch" aria-label="Screener tools">${a("screener", "#/screener", "Screen stocks")}${a("compare", "#/compare", "Compare")}</nav>`;
   }
 
   /* ------------------------------------------------------------------ Home */
@@ -320,7 +326,12 @@
       </header>
       <div class="home-one">
         <section class="card fade-in">
-          <div class="card-head"><h2>Market news</h2>${info("market mood")}</div>          <div id="market"></div>
+          <div class="card-head"><h2>Market news</h2>${info("market mood")}</div>
+          <form class="news-search" id="mk-search" role="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" id="mk-q" placeholder="Search news for a stock or topic" autocomplete="off" spellcheck="false" aria-label="Search news for a stock or topic" enterkeyhint="search">
+          </form>
+          <div id="market"></div>
         </section>
       </div>`;
     if (window.MarketNews) MarketNews.mount();
@@ -330,7 +341,7 @@
   /* ------------------------------------------------------------------ Company */
   async function loadCompany(path) {
     const tok = ++S.token;
-    Object.assign(S, { path, company: null, people: null, peopleErr: null, price: null, priceDone: false, nifty: null, val: null, news: {}, newsFilter: "all", flaggedOnly: false, newsImpact: "any", rpAll: false });
+    Object.assign(S, { path, company: null, people: null, peopleErr: null, price: null, priceDone: false, nifty: null, val: null, news: {}, newsFilter: "all", flaggedOnly: false, newsImpact: "any", newsQ: "", rpAll: false });
     if (S.cy) { S.cy.destroy(); S.cy = null; }
     scrollTo({ top: 0 });
     $("#view").innerHTML = `
@@ -445,6 +456,7 @@
           <div class="price num">${esc(ratio("Current Price")?.value || "")}</div>
           <div class="delta faint" id="delta">Market cap ${esc(ratio("Market Cap")?.value || "—")}</div>
           <div id="spark"></div>
+          <div class="sector-line" id="sector-line"></div>
         </div>
       </div>
       <div class="seg-wrap">
@@ -455,6 +467,8 @@
         ${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.tab}">${l}<span class="count" data-count="${k}"></span></button>`).join("")}
       </div></div>
       <div id="tab"></div>`;
+    // Today's move: the stock vs its sector vs the Nifty 50 (fills in when prices arrive).
+    if (window.Sectors) Sectors.companyLine(c, c.nse_symbol ? c.nse_symbol + ".NS" : null);
     const thumbX = spring((x) => ($("#thumb").style.transform = `translateX(${x}px)`));
     const thumbW = spring((w) => ($("#thumb").style.width = w + "px"));
     const place = (instant) => {
@@ -748,7 +762,7 @@
     document.title = "Compare · Stock Lens";
     if (S.cy) { S.cy.destroy(); S.cy = null; }
     scrollTo({ top: 0 });
-    $("#view").innerHTML = `<div class="co-head fade-in"><div><h1>Compare</h1><p class="sub ex" style="margin:8px 0 0">Up to 4 companies side by side on the same checks. Comparing within one industry is fairest.</p></div></div>
+    $("#view").innerHTML = `<div class="co-head fade-in"><div><h1>Compare</h1>${toolSwitch("compare")}<p class="sub ex" style="margin:8px 0 0">Up to 4 companies side by side on the same checks. Comparing within one industry is fairest.</p></div></div>
       <div class="card"><div id="cmp-pick"></div><div id="cmp-table"></div></div>`;
     renderCompare();
   }
@@ -955,16 +969,17 @@
   ];
   const TAG_IMPACT = { high: -3, medium: -1.5, low: -1, positive: 0 };
   const MARKET_WIDE = /\b(sensex|nifty ?(50|bank|it)?|markets?|dalal street|stocks to (watch|buy)|stocks in (news|focus)|buzzing stocks|top (gainers|losers)|midcaps?|smallcaps?)\b/i;
-  function newsImpact(x) {
+  function newsImpact(x, forName) {
     let t = x.title;
     let score = 0;
     const why = [];
-    // Round-ups ("Sensex tumbles; IIFL, SpiceJet among buzzing stocks") cover many companies:
-    // judge only the parts that name this company, or give the whole thing half weight if it isn't named.
+    // Round-ups ("Sensex tumbles; IIFL, SpiceJet among buzzing stocks") and two-company headlines
+    // ("Infosys sheds 2%; Tonbo up 2% on order win") cover several companies: judge only the parts that
+    // name this company, or give a market round-up half weight if it isn't named.
     const market = MARKET_WIDE.test(t);
-    const key = (shortName(S.company?.name || "").split(/\s+/)[0] || "").toLowerCase();
+    const key = (shortName(forName || S.company?.name || "").split(/\s+/)[0] || "").toLowerCase();
     let scoped = false;
-    if (market && key.length >= 3) {
+    if ((market || /;/.test(t)) && key.length >= 3) {
       const parts = t.split(/\s*[,;:|]\s*|\s+[-–—]\s+/).filter((p) => p.toLowerCase().includes(key));
       if (parts.length) { t = parts.join(". "); scoped = true; why.push(`market round-up: only “${t}” judged`); }
     }
@@ -998,7 +1013,9 @@
     all = all.filter((x) => { const k = x.link; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => b.ts - a.ts);
     all.forEach((x) => (x.im = newsImpact(x)));
     const imp = S.newsImpact || "any";
-    const base = all.filter((x) => (S.newsFilter === "all" || x.g.key === S.newsFilter) && (!S.flaggedOnly || x.risk >= 2));
+    const words = (S.newsQ || "").toLowerCase().split(/\s+/).filter(Boolean);
+    const base = all.filter((x) => (S.newsFilter === "all" || x.g.key === S.newsFilter) && (!S.flaggedOnly || x.risk >= 2)
+      && words.every((w) => (x.title + " " + x.source).toLowerCase().includes(w)));
     const list = imp === "any" ? base : base.filter((x) => x.im.dir === imp || (imp === "mixed" && x.im.dir === "none"));
     const nImp = (d) => base.filter((x) => x.im.dir === d).length;
     const chip = (k, label, n) => `<button class="chip press ${S.newsFilter === k ? "on" : ""}" data-nf="${esc(k)}">${esc(label)}${n ? ` <span style="opacity:.6">${n}</span>` : ""}</button>`;
@@ -1006,6 +1023,11 @@
     const sorted = imp === "pos" ? [...list].sort((a, b) => b.im.score - a.im.score || b.ts - a.ts) : imp === "neg" ? [...list].sort((a, b) => a.im.score - b.im.score || b.ts - a.ts) : list;
     el.innerHTML = `<div class="card">
       <h2>What's happening</h2><p class="sub ex">Last 12 months from Google News for the company, its key people and main promoters. Flags and impact come from simple keyword rules — always read the article.</p>
+      <form class="news-search" id="nq-form" role="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="nq" value="${esc(S.newsQ || "")}" placeholder="Find in these headlines, e.g. dividend, order, results" autocomplete="off" spellcheck="false" aria-label="Find in this company's news" enterkeyhint="search">
+        ${S.newsQ ? `<span class="nq-n">${base.length}</span>` : ""}
+      </form>
       <div class="filters">${chip("all", "All", all.length)}${groups.map((g) => chip(g.key, g.label, g.items.length)).join("")}
         <button class="chip press ${S.flaggedOnly ? "on" : ""}" id="nf-flag">${ICON.high} Flagged only</button></div>
       <div class="filters impact-row"><span class="impact-lbl">Price impact ${info("news impact")}</span>
@@ -1018,6 +1040,17 @@
         : `<div class="empty">${loading ? "" : "No headlines match."}</div>`}</div></div>`;
     $$("[data-nf]", el).forEach((b) => b.addEventListener("click", () => { S.newsFilter = b.dataset.nf; tabNews(el); }));
     $$("[data-imp]", el).forEach((b) => b.addEventListener("click", () => { S.newsImpact = b.dataset.imp; tabNews(el); }));
+    // Search within this company's headlines; keep the cursor in the box while the list redraws.
+    const nq = $("#nq", el);
+    $("#nq-form", el).addEventListener("submit", (e) => { e.preventDefault(); nq.blur(); });
+    nq.addEventListener("input", () => {
+      clearTimeout(S.nqT);
+      S.nqT = setTimeout(() => {
+        S.newsQ = nq.value;
+        tabNews(el);
+        const n2 = $("#nq", el); n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length);
+      }, 250);
+    });
     $("#nf-flag", el).addEventListener("click", () => { S.flaggedOnly = !S.flaggedOnly; tabNews(el); });
   }
 
@@ -1512,5 +1545,5 @@
   }
 
   // Shared with pro.js (portfolio, custom screener, financials, fair value…), which calls SL.start() once loaded.
-  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, EXAMPLES, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
+  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, EXAMPLES, newsImpact, impactBadge, toolSwitch, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
 })();

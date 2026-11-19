@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Stock Lens magnifier, centred in the 66dp safe zone of a 108dp adaptive icon. -->
+<!-- App icon: a search bar. A white rounded bar with a bold blue magnifier and one short "typed text"
+     line, sized well inside the 66dp safe zone of the 108dp adaptive icon and bold enough to read at 48px. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- the bar: x 28..80, y 39..69 (height 30, fully rounded) -->
     <path
-        android:pathData="M49,49m-15,0a15,15 0,1 1,30 0a15,15 0,1 1,-30 0"
-        android:strokeWidth="6.5"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M43,39L65,39A15,15 0,0 1,65 69L43,69A15,15 0,0 1,43 39Z"
+        android:fillColor="#FFFFFF" />
+    <!-- magnifier -->
+    <path
+        android:pathData="M44,53m-6.5,0a6.5,6.5 0,1 1,13 0a6.5,6.5 0,1 1,-13 0"
+        android:strokeWidth="3.6"
+        android:strokeColor="#0071E3"
         android:fillColor="#00000000" />
     <path
-        android:pathData="M60.5,60.5L73,73"
-        android:strokeWidth="6.5"
-        android:strokeColor="#FFFFFF"
+        android:pathData="M48.8,57.8L53,62"
+        android:strokeWidth="3.6"
+        android:strokeColor="#0071E3"
+        android:strokeLineCap="round" />
+    <!-- typed text -->
+    <path
+        android:pathData="M59,54L70,54"
+        android:strokeWidth="3.6"
+        android:strokeColor="#B9CCE6"
         android:strokeLineCap="round" />
 </vector>

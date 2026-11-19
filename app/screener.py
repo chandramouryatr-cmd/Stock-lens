@@ -417,6 +417,72 @@ def _safe_quote(s):
         return {"symbol": s, "error": str(e)[:120]}
 
 
+# NSE sector indices that Yahoo Finance serves with daily history (others give only today's price).
+SECTORS = [
+    ("^NSEBANK", "Banks", "bank"), ("^CNXPSUBANK", "PSU banks", "psubank"), ("NIFTY_FIN_SERVICE.NS", "Financial services", "fin"),
+    ("^CNXIT", "IT", "it"), ("^CNXPHARMA", "Pharma", "pharma"), ("^CNXAUTO", "Auto", "auto"),
+    ("^CNXFMCG", "FMCG", "fmcg"), ("^CNXMETAL", "Metals", "metal"), ("^CNXREALTY", "Realty", "realty"),
+    ("^CNXENERGY", "Energy", "energy"), ("^CNXINFRA", "Infrastructure", "infra"), ("^CNXPSE", "Govt. companies", "pse"),
+    ("^CNXCONSUM", "Consumption", "consum"), ("^NSEI", "Nifty 50", "nifty"),
+]
+
+
+def _sector_one(sym):
+    d = get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}", params={"range": "1mo", "interval": "1d"})
+    res = d["chart"]["result"][0]
+    closes = [c for c in res["indicators"]["quote"][0]["close"] if c is not None]
+    last = res.get("meta", {}).get("regularMarketPrice") or (closes[-1] if closes else None)
+    if not last or len(closes) < 2:
+        return None
+    pct = lambda base: round((last / base - 1) * 100, 2) if base else None
+    return {"price": last, "day": pct(closes[-2]), "week": pct(closes[-6] if len(closes) >= 6 else closes[0]),
+            "month": pct(closes[0]), "line": [round(c, 2) for c in closes]}
+
+
+@cached(5 * 60)
+def sectors():
+    """Today's, this week's and this month's move for each NSE sector index."""
+    out = []
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for (sym, name, key), r in zip(SECTORS, ex.map(lambda s: _safe(lambda: _sector_one(s[0])), SECTORS)):
+            if r:
+                out.append({"symbol": sym, "name": name, "key": key, **r})
+    return out
+
+
+# World commodity futures (US dollars) and the rupee. Gold and silver also get a rough rupee price:
+# dollars per troy ounce x USD/INR / 31.1035 g, BEFORE import duty and GST (so below Indian MCX / shop prices).
+COMMODITIES = [
+    ("GC=F", "Gold", "$/oz"), ("SI=F", "Silver", "$/oz"), ("BZ=F", "Brent crude", "$/barrel"), ("CL=F", "WTI crude", "$/barrel"),
+    ("NG=F", "Natural gas", "$/mmBtu"), ("HG=F", "Copper", "$/lb"),
+    ("INR=X", "US dollar in rupees", "₹ per $"),
+]
+
+
+@cached(5 * 60)
+def commodities():
+    rows = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for (sym, name, unit), r in zip(COMMODITIES, ex.map(lambda c: _safe(lambda: _sector_one(c[0])), COMMODITIES)):
+            if r:
+                rows[sym] = {"symbol": sym, "name": name, "unit": unit, **r}
+    usd = rows.get("INR=X", {}).get("price")
+    if usd:
+        if "GC=F" in rows:
+            rows["GC=F"]["inr"] = {"value": round(rows["GC=F"]["price"] * usd / 31.1035 * 10), "unit": "₹ per 10 g"}
+        if "SI=F" in rows:
+            rows["SI=F"]["inr"] = {"value": round(rows["SI=F"]["price"] * usd / 31.1035 * 1000), "unit": "₹ per kg"}
+    vix = _safe(lambda: _sector_one("^INDIAVIX"))
+    return {"items": [rows[s] for s, _, _ in COMMODITIES if s in rows], "vix": vix}
+
+
+def _safe(fn):
+    try:
+        return fn()
+    except Exception:
+        return None
+
+
 @cached(HOUR)
 def price(symbol, rng="1y"):
     if not re.fullmatch(r"[\w\-&.]+\.(NS|BO)|\^NSEI", symbol) or rng not in ("1y", "5y"):

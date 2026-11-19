@@ -141,9 +141,54 @@
     draw();
   }
 
+  /* ---------------------------------------------------------------- news search
+     Type a stock (or any topic) to see its last 12 months of headlines, each marked likely positive /
+     negative for that stock with the same word rules as a company's News tab. */
+  const Q = { q: "", items: null, loading: false, err: null, tab: "all", tok: 0 };
+  async function search(q) {
+    Q.q = q.trim(); Q.tab = "all";
+    if (Q.q.length < 2) { Q.items = null; draw(); return; }
+    const my = ++Q.tok;
+    Q.loading = true; Q.err = null; draw();
+    try {
+      const items = await window.SL.api("/api/news", { q: Q.q });
+      if (my !== Q.tok) return;
+      Q.items = items.map((x) => ({ ...x, im: window.SL.newsImpact(x, Q.q) }));
+    } catch (e) { if (my === Q.tok) Q.err = e.message; }
+    if (my === Q.tok) { Q.loading = false; draw(); }
+  }
+  function drawSearch(box) {
+    const { esc, impactBadge } = window.SL;
+    if (Q.loading) { box.innerHTML = `<div class="loading-line" style="padding:14px 0"><span class="spinner"></span>Finding news for “${esc(Q.q)}”…</div>`; return; }
+    if (Q.err) { box.innerHTML = `<p class="muted">Couldn't search news: ${esc(Q.err)}</p>`; return; }
+    const all = Q.items || [];
+    const n = (d) => all.filter((x) => x.im.dir === d).length;
+    const list = Q.tab === "all" ? all : all.filter((x) => x.im.dir === Q.tab);
+    const seg = (k, label, c) => `<button role="tab" class="${k} ${Q.tab === k ? "on" : ""}" data-qt="${k}">${label}<span class="num">${c}</span></button>`;
+    box.innerHTML = `
+      <div class="mk-seg" role="tablist">${seg("all", "All", all.length)}${seg("pos", "▲ Positive", n("pos"))}${seg("neg", "▼ Negative", n("neg"))}</div>
+      <div class="mk-bar"><span>News for <b>${esc(Q.q)}</b></span><button class="linkish" id="mk-clear">Back to market news</button></div>
+      <div class="mk-list">${list.length ? list.slice(0, 40).map((x) => `<article class="mk-item">
+          <a class="mk-h" href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+          <div class="mk-meta">${impactBadge(x.im)} ${esc(x.source)} · ${ago(x.ts)}</div></article>`).join("")
+        : `<div class="empty">${all.length ? "None in this group." : `No news found for “${esc(Q.q)}” in the last year.`}</div>`}</div>`;
+    box.querySelectorAll("[data-qt]").forEach((b) => b.addEventListener("click", () => { Q.tab = b.dataset.qt; draw(); }));
+    document.getElementById("mk-clear").addEventListener("click", () => { const i = document.getElementById("mk-q"); if (i) i.value = ""; search(""); });
+  }
+  function wireSearch() {
+    const form = document.getElementById("mk-search"), inp = document.getElementById("mk-q");
+    if (!form || form.dataset.wired) return;
+    form.dataset.wired = "1";
+    if (Q.q) inp.value = Q.q;
+    let t = 0;
+    form.addEventListener("submit", (e) => { e.preventDefault(); clearTimeout(t); inp.blur(); search(inp.value); });
+    inp.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => search(inp.value), 700); });
+  }
+
   function draw() {
     const box = document.getElementById("market");
     if (!box) return;
+    if (Q.q.length >= 2) { drawSearch(box); return; }
     const { esc, info } = window.SL;
     if (!M.data) {
       box.innerHTML = M.err ? `<div class="empty">Couldn't load market news: ${esc(M.err)} <button class="btn secondary" id="mk-retry">Try again</button></div>`
@@ -188,5 +233,5 @@
     document.getElementById("mk-refresh").addEventListener("click", () => load(true));
   }
 
-  window.MarketNews = { mount() { draw(); load(false); }, judge };
+  window.MarketNews = { mount() { wireSearch(); draw(); load(false); }, judge };
 })();

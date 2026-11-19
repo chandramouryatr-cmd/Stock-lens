@@ -210,7 +210,7 @@
   PAGES["/screener"] = (view) => {
     document.title = "Screener · Stock Lens";
     let F = obj("sl-filters");
-    view.innerHTML = `<div class="co-head fade-in"><div><h1>Screener</h1><p class="sub ex" style="margin:8px 0 0">Set your own rules and see which companies meet all of them. A filter only narrows the list — read each company before deciding anything.</p></div></div>
+    view.innerHTML = `<div class="co-head fade-in"><div><h1>Screener</h1>${SL.toolSwitch("screener")}<p class="sub ex" style="margin:8px 0 0">Set your own rules and see which companies meet all of them. A filter only narrows the list — read each company before deciding anything.</p></div></div>
       <div class="grid"><div class="card"><h2>1 · Which companies to search${info("index")}</h2>
           <div class="filters" id="sx-uni">${UNIS.map(([k, l]) => `<button class="chip press" data-uni="${k}">${l}</button>`).join("")}</div>
           <p class="sub ex" style="margin:0">Bigger lists take longer the first time (the Nifty 500 needs about 5 minutes). After that they open at once for 12 hours.</p></div>
