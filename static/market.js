@@ -157,32 +157,88 @@
     } catch (e) { if (my === Q.tok) Q.err = e.message; }
     if (my === Q.tok) { Q.loading = false; draw(); }
   }
+  /* ---------------------------------------------------------------- pinned news tabs
+     Stocks (or topics) you pin show as tabs above Market news: [Market] [Infosys] [TCS] …
+     Saved on this device ("sl-newspins"). */
+  const PINS_KEY = "sl-newspins";
+  const pins = () => { try { return JSON.parse(localStorage.getItem(PINS_KEY)) || []; } catch (e) { return []; } };
+  const setPins = (p) => { try { localStorage.setItem(PINS_KEY, JSON.stringify(p.slice(0, 10))); } catch (e) {} };
+  const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  function tabsHtml() {
+    const { esc } = window.SL;
+    const p = pins(), q = Q.q.length >= 2 ? Q.q : "";
+    const t = (label, val, on, extra = "") => `<button class="nt ${on ? "on" : ""} ${extra}" data-nt="${esc(val)}">${esc(label)}</button>`;
+    return `<div class="hscroll news-tabs" role="tablist">${t("Market", "", !q)}${p.map((x) => t(x, x, q && same(q, x))).join("")}
+      ${q && !p.some((x) => same(x, q)) ? t(q, q, true, "temp") : ""}</div>`;
+  }
+  function openTab(val) {
+    const i = document.getElementById("mk-q");
+    if (i) i.value = "";
+    hideSuggest();
+    search(val);
+  }
+
   function drawSearch(box) {
     const { esc, impactBadge } = window.SL;
-    if (Q.loading) { box.innerHTML = `<div class="loading-line" style="padding:14px 0"><span class="spinner"></span>Finding news for “${esc(Q.q)}”…</div>`; return; }
-    if (Q.err) { box.innerHTML = `<p class="muted">Couldn't search news: ${esc(Q.err)}</p>`; return; }
+    const head = tabsHtml();
+    if (Q.loading) { box.innerHTML = head + `<div class="loading-line" style="padding:14px 0"><span class="spinner"></span>Finding news for “${esc(Q.q)}”…</div>`; wireTabs(box); return; }
+    if (Q.err) { box.innerHTML = head + `<p class="muted">Couldn't search news: ${esc(Q.err)}</p>`; wireTabs(box); return; }
     const all = Q.items || [];
     const n = (d) => all.filter((x) => x.im.dir === d).length;
     const list = Q.tab === "all" ? all : all.filter((x) => x.im.dir === Q.tab);
+    const pinned = pins().some((x) => same(x, Q.q));
     const seg = (k, label, c) => `<button role="tab" class="${k} ${Q.tab === k ? "on" : ""}" data-qt="${k}">${label}<span class="num">${c}</span></button>`;
-    box.innerHTML = `
+    box.innerHTML = head + `
+      <div class="nt-bar"><span>News for <b>${esc(Q.q)}</b> · last 12 months</span>
+        <button class="nt-pin ${pinned ? "pinned" : ""}" id="nt-pin">${pinned ? "Unpin" : "📌 Pin as tab"}</button></div>
       <div class="mk-seg" role="tablist">${seg("all", "All", all.length)}${seg("pos", "▲ Positive", n("pos"))}${seg("neg", "▼ Negative", n("neg"))}</div>
-      <div class="mk-bar"><span>News for <b>${esc(Q.q)}</b></span><button class="linkish" id="mk-clear">Back to market news</button></div>
       <div class="mk-list">${list.length ? list.slice(0, 40).map((x) => `<article class="mk-item">
           <a class="mk-h" href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
           <div class="mk-meta">${impactBadge(x.im)} ${esc(x.source)} · ${ago(x.ts)}</div></article>`).join("")
         : `<div class="empty">${all.length ? "None in this group." : `No news found for “${esc(Q.q)}” in the last year.`}</div>`}</div>`;
     box.querySelectorAll("[data-qt]").forEach((b) => b.addEventListener("click", () => { Q.tab = b.dataset.qt; draw(); }));
-    document.getElementById("mk-clear").addEventListener("click", () => { const i = document.getElementById("mk-q"); if (i) i.value = ""; search(""); });
+    document.getElementById("nt-pin").addEventListener("click", () => {
+      const p = pins();
+      setPins(pinned ? p.filter((x) => !same(x, Q.q)) : [...p, Q.q]);
+      draw();
+    });
+    wireTabs(box);
   }
+  function wireTabs(box) {
+    box.querySelectorAll("[data-nt]").forEach((b) => b.addEventListener("click", () => openTab(b.dataset.nt)));
+    const on = box.querySelector(".nt.on");
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  /* Search box: suggests companies as you type; pick one (or press search) to see its news. */
+  let sugTok = 0;
+  function hideSuggest() { const s = document.getElementById("mk-sug"); if (s) s.classList.add("hidden"); }
   function wireSearch() {
     const form = document.getElementById("mk-search"), inp = document.getElementById("mk-q");
     if (!form || form.dataset.wired) return;
     form.dataset.wired = "1";
-    if (Q.q) inp.value = Q.q;
+    const { esc, api, shortName } = window.SL;
+    form.insertAdjacentHTML("beforeend", `<div class="results hidden" id="mk-sug" role="listbox"></div>`);
+    const sug = document.getElementById("mk-sug");
     let t = 0;
-    form.addEventListener("submit", (e) => { e.preventDefault(); clearTimeout(t); inp.blur(); search(inp.value); });
-    inp.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => search(inp.value), 700); });
+    form.addEventListener("submit", (e) => { e.preventDefault(); clearTimeout(t); const v = inp.value; inp.blur(); openTab(v); });
+    inp.addEventListener("input", () => {
+      clearTimeout(t);
+      const v = inp.value.trim();
+      if (v.length < 2) { hideSuggest(); return; }
+      const my = ++sugTok;
+      t = setTimeout(async () => {
+        let r = [];
+        try { r = await api("/api/search", { q: v }); } catch (e) {}
+        if (my !== sugTok) return;
+        sug.innerHTML = r.slice(0, 5).map((x) => `<button type="button" data-sn="${esc(shortName(x.name))}"><span>${esc(x.name)}</span><span class="path">News</span></button>`).join("")
+          + `<button type="button" data-sn="${esc(v)}"><span>Search news for “${esc(v)}”</span></button>`;
+        sug.classList.remove("hidden");
+      }, 250);
+    });
+    sug.addEventListener("mousedown", (e) => e.preventDefault());
+    sug.addEventListener("click", (e) => { const b = e.target.closest("[data-sn]"); if (b) { inp.blur(); openTab(b.dataset.sn); } });
+    inp.addEventListener("blur", () => setTimeout(hideSuggest, 150));
   }
 
   function draw() {
@@ -204,7 +260,7 @@
     const mood = !pos.length && !neg.length ? "" : net >= 3 ? "Mostly positive" : net <= -3 ? "Mostly negative" : "Mixed";
     const seg = (k, label, n) => `<button role="tab" class="${k} ${M.tab === k ? "on" : ""}" data-mt="${k}" aria-selected="${M.tab === k}">${label}<span class="num">${n}</span></button>`;
     const shown = list.slice(0, M.more ? 60 : 12);
-    box.innerHTML = `
+    box.innerHTML = (pins().length ? tabsHtml() : "") + `
       <div class="mk-seg" role="tablist">${seg("pos", "▲ Positive", pos.length)}${seg("neg", "▼ Negative", neg.length)}${seg("none", "Unclear", none.length)}</div>
       <div class="mk-bar">
         ${mood ? `<span class="mk-mood ${net >= 3 ? "pos" : net <= -3 ? "neg" : ""}"><b>${mood}</b> today</span>` : "<span></span>"}
@@ -231,6 +287,7 @@
     const more = document.getElementById("mk-more");
     if (more) more.addEventListener("click", () => { M.more = true; draw(); });
     document.getElementById("mk-refresh").addEventListener("click", () => load(true));
+    wireTabs(box);
   }
 
   window.MarketNews = { mount() { wireSearch(); draw(); load(false); }, judge };

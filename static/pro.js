@@ -357,23 +357,52 @@
     const c = S.company, m = S.score.m, epsS = (S.val && S.val.eps) || [];
     const price = S.price ? S.price.points[S.price.points.length - 1][1] : m.price;
     const eps = epsS.length ? epsS[epsS.length - 1][1] : m.pe > 0 && price ? price / m.pe : null;
-    if (!(eps > 0) || !price) { box.innerHTML = `<h2>Fair-value calculator${info("fair value")}</h2><p class="muted">${S.val ? "Needs a positive profit per share, so it cannot be worked out for a loss-making company." : "Loading…"}</p>`; return; }
-    S.fv = S.fv && S.fv.path === c.path ? S.fv : { path: c.path, g: Math.round(clamp(m.p5 != null ? Math.min(m.p5, 20) : 10, 3, 20)), pe: Math.round(clamp((S.val && S.val.median_pe) || m.pe || 20, 8, 35)), r: 12 };
+    if (!(eps > 0) || !price) { box.innerHTML = `<h2>Fair value${info("fair value")}</h2><p class="muted">${S.val ? "Needs a positive profit per share, so it can't be worked out for a loss-making company." : "Loading…"}</p>`; return; }
+    S.fv = S.fv && S.fv.path === c.path ? S.fv : { path: c.path, g: Math.round(clamp(m.p5 != null ? Math.min(m.p5, 20) : 10, 3, 20)), pe: Math.round(clamp((S.val && S.val.median_pe) || m.pe || 20, 8, 35)), r: 12, open: false };
     const fv = S.fv;
-    const slider = (k, label, key, min, max, unit) => `<label class="slider"><span>${label}${info(key)}</span><b class="num" id="fv-${k}-v">${fv[k]}${unit}</b><input type="range" min="${min}" max="${max}" step="1" value="${fv[k]}" data-fv="${k}" data-unit="${unit}"></label>`;
-    box.innerHTML = `<h2>Fair-value calculator${info("fair value")}</h2><p class="sub ex">Your own guesses in, a rough worth out. Starting values come from the company's past; move them to see how much the answer swings.</p>
-      ${slider("g", "Profit growth a year, next 10 years", "cagr", 0, 35, "%")}${slider("pe", "P/E after 10 years", "exit pe", 5, 60, "")}${slider("r", "Return you want a year", "required return", 8, 20, "%")}
+    // Worth today = profit per share grown for 10 years x the P/E it then trades at, brought back to today
+    // at the yearly return you want.
+    const worth = (g, pe) => (eps * (1 + g / 100) ** 10 * pe) / (1 + fv.r / 100) ** 10;
+    const slider = (k, label, key, min, max, unit, hint) => `<div class="fv-sl"><div class="fv-sl-top"><span>${label}${info(key)}</span><b class="num" id="fv-${k}-v">${fv[k]}${unit}</b></div>
+        <input type="range" min="${min}" max="${max}" step="1" value="${fv[k]}" data-fv="${k}" data-unit="${unit}" aria-label="${label}">
+        <div class="fv-sl-ends"><span>${min}${unit}</span><span class="fv-hint">${hint}</span><span>${max}${unit}</span></div></div>`;
+    box.innerHTML = `<div class="fv-head"><h2>Fair value${info("fair value")}</h2><span class="fv-tag">Estimate</span></div>
       <div id="fv-out"></div>
-      <p class="sub" style="margin:10px 0 0">Based on profit per share${info("eps")} of ₹${inr(eps, 1)} today. Dividends are left out. A calculator, not a price target.</p>`;
+      <details class="fv-adjust"${fv.open ? " open" : ""}><summary>Change the guesses</summary>
+        ${slider("g", "Profit growth a year (next 10 years)", "cagr", 0, 35, "%", m.p5 != null ? `last 5 yrs: ${m.p5}%` : "")}
+        ${slider("pe", "P/E in 10 years", "exit pe", 5, 60, "", S.val && S.val.median_pe ? `usual: ${Math.round(S.val.median_pe)}` : m.pe ? `now: ${Math.round(m.pe)}` : "")}
+        ${slider("r", "Return you want a year", "required return", 8, 20, "%", "FD ≈ 7%")}
+      </details>
+      <p class="fv-foot">Based on profit per share of ₹${inr(eps, 1)}${info("eps")} · leaves out dividends · a rough guide, not a price target.</p>`;
     const out = () => {
-      const fair = (eps * (1 + fv.g / 100) ** 10 * fv.pe) / (1 + fv.r / 100) ** 10, diff = (fair / price - 1) * 100;
+      const base = worth(fv.g, fv.pe);
+      // A range instead of one number: a cautious and a hopeful case around your guesses.
+      const low = worth(Math.max(0, fv.g - 5), Math.max(5, fv.pe * 0.8)), high = worth(fv.g + 5, fv.pe * 1.2);
+      const diff = (base / price - 1) * 100;
       const need = ((price * (1 + fv.r / 100) ** 10) / (eps * fv.pe)) ** 0.1 - 1;
-      $("#fv-out").innerHTML = `<div class="fv-row"><div><div class="k">Worth with these guesses</div><div class="v">₹${inr(fair)}</div></div><div><div class="k">Price today</div><div class="v">₹${inr(price)}</div></div>
-        <div><div class="k">Gap</div><div class="v ${tone(diff)}">${signed(diff, 0)}</div></div></div>
-        <p style="margin:10px 0 0;font-size:.9375rem">${diff >= 0 ? "With these guesses the share is worth more than it costs today." : "With these guesses the share costs more than it is worth today."}
-        For today's price to give you ${fv.r}% a year, profit must grow about <b>${(need * 100).toFixed(0)}%</b> a year for 10 years${m.p5 != null ? ` (it grew ${m.p5}% a year over the past 5)` : ""}.</p>`;
+      // How far the PRICE is from the estimate, measured against the estimate (₹78 vs ₹190 = 59% below).
+      const gap = Math.abs(price / base - 1) * 100;
+      const verdict = gap < 10 ? ["Trades close to its estimated worth", "flat"] : price < base ? [`Trades ${Math.round(gap)}% below its estimated worth`, "up"] : [`Trades ${Math.round(gap)}% above its estimated worth`, "down"];      // Scale for the range bar
+      const lo = Math.min(low, price) * 0.9, hi = Math.max(high, price) * 1.08, at = (v) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
+      const needPct = Math.round(need * 100), past = m.p5;
+      const needTone = past == null ? "" : needPct <= past ? "up" : needPct <= past + 5 ? "flat" : "down";
+      $("#fv-out").innerHTML = `
+        <div class="fv-main">
+          <div><div class="fv-k">Estimated worth</div><div class="fv-big">₹${inr(base)}</div></div>
+          <div class="fv-vs"><div class="fv-k">Price today</div><div class="fv-mid">₹${inr(price)}</div></div>
+        </div>
+        <div class="fv-verdict ${verdict[1]}">${verdict[1] === "up" ? "▲" : verdict[1] === "down" ? "▼" : "●"} ${verdict[0]}</div>
+        <div class="fv-range" aria-label="Range of estimates">
+          <div class="fv-track"><i class="fv-band" style="left:${at(low)}%;width:${at(high) - at(low)}%"></i>
+            <i class="fv-base" style="left:${at(base)}%"></i><i class="fv-price ${at(price) < 12 ? "l" : at(price) > 88 ? "r" : ""}" style="left:${at(price)}%"><span>Today ₹${inr(price)}</span></i></div>
+          <div class="fv-ends"><span>Cautious<br><b>₹${inr(low)}</b></span><span>Your guess<br><b>₹${inr(base)}</b></span><span>Hopeful<br><b>₹${inr(high)}</b></span></div>
+        </div>
+        <div class="fv-need"><div class="fv-k">What today's price expects</div>
+          <div class="fv-need-row"><div><b class="fv-need-v ${needTone}">${needPct}%</b><span>profit growth a year for 10 years</span></div>
+            ${past != null ? `<div><b class="fv-need-v">${past}%</b><span>what it actually grew, last 5 years</span></div>` : ""}</div></div>`;
     };
     $$("[data-fv]", box).forEach((i) => i.addEventListener("input", () => { fv[i.dataset.fv] = +i.value; $(`#fv-${i.dataset.fv}-v`).textContent = i.value + i.dataset.unit; out(); }));
+    $(".fv-adjust", box).addEventListener("toggle", (e) => { fv.open = e.target.open; });
     out();
   }
 

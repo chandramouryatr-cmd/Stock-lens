@@ -226,7 +226,10 @@
   /* Saved lists (this browser only) */
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    set(k, v) {
+      try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+      if (k === "sl-watch" && window.Watch && Watch.sync) Watch.sync(); // keep the phone's home-screen widget in step
+    },
   };
   const watched = (path) => store.get("sl-watch").some((w) => w.path === path);
   function toggleWatch(name, path) {
@@ -617,7 +620,7 @@
           <div class="faint" id="note-saved" style="font-size:.75rem">${noteAt ? "Saved " + noteAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}</div>
         </details>
       </div>
-      <div class="tiles">${tiles}</div>
+      <div class="tiles kf">${tiles}</div>
       <div class="grid g2">
         <div class="card"><h2>About</h2>
           <p class="sub">${c.website ? `<a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\//, ""))} ${ICON.ext}</a>` : ""}</p>
@@ -951,8 +954,8 @@
      Words describing the share's actual move (jumps, slumps) count double: they report the market's reaction. */
   const IMPACT_RULES = [
     // [weight, regex, short reason]
-    [2, /\b(jump|surge|soar|rall(y|ie)|zoom|spurt|skyrocket)\w*|\bshares? (rise|rises|rose|gain|gains|climb|climbs|up)\b|\b(rises?|rose|gains?|climbs?|advances?|up) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? gains\b|\bhits? (52.week|record|all.time|fresh|new) high|\btop gainers?\b|\bupper circuit/i, "shares rose"],
-    [-2, /\b(slump|plunge|tank|crash|tumble|sink|sank|slide|slid|plummet|nosedive)\w*|\bshares? (fall|falls|fell|drop|drops|dropped|dip|dips|decline|declines|down|slip|slips)\b|\b(falls?|fell|drops?|declines?|slips?|sheds?|down) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? losses\b|\bhits? (52.week|record|fresh|new) low|\btop losers?\b|\blower circuit/i, "shares fell"],
+    [2, /\b(jump|surge|soar|rall(y|ie)|zoom|spurt|skyrocket)\w*|\bshares? (rise|rises|rose|gain|gains|climb|climbs|up)\b|\b(rises?|rose|gains?|climbs?|advances?|up) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? (gains|gainers)\b|\bamong (top )?gainers\b|\bhits? (52.week|record|all.time|fresh|new) high|\btop gainers?\b|\bupper circuit/i, "shares rose"],
+    [-2, /\b(slump|plunge|tank|crash|tumble|sink|sank|slide|slid|plummet|nosedive)\w*|\bshares? (fall|falls|fell|drop|drops|dropped|dip|dips|decline|declines|down|slip|slips)\b|\b(falls?|fell|drops?|declines?|slips?|sheds?|down) (over |nearly |about )?\d+(\.\d+)? ?(%|per ?cent)|\bleads? (losses|losers)\b|\bamong (top )?losers\b|\bhits? (52.week|record|fresh|new) low|\btop losers?\b|\blower circuit/i, "shares fell"],
     [2, /\b(record|highest|strong|robust|stellar|bumper) (profit|revenue|earnings|results|growth|quarter|q\d)|\bprofit (rises|jumps|surges|soars|grows|up|doubles)|\bnet (profit|income) (rises|jumps|up)|\bbeats? (estimates|expectations|street)/i, "strong results"],
     [-2, /\b(weak|poor|disappointing|muted) (results|quarter|q\d|earnings|show)|\b(profit|revenue|income|earnings) (falls|fell|drops|declines|slumps|plunges|down|dips)|\bloss (widens|widened)|\bmiss(es|ed)? (estimates|expectations)|\bposts? (a )?(net )?loss/i, "weak results"],
     [2, /\bupgrad\w*|\b(target|tp) (raised|hiked|increased)|\b(buy|overweight|outperform) (rating|call)|\binitiates? .{0,20}\bbuy\b|\bbullish\b/i, "analyst upgrade"],

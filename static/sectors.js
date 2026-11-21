@@ -24,10 +24,33 @@
   }
   const money = (v, d) => (v == null ? "—" : v.toLocaleString("en-IN", { maximumFractionDigits: d, minimumFractionDigits: d }));
 
-  function barRow(name, sub, v, max) {
-    return `<div class="sec-row"><span class="sec-name">${name}${sub ? `<small>${sub}</small>` : ""}</span>
+  function barRow(name, sub, v, max, key) {
+    const open = key && H.open === key;
+    const tag = key ? `button type="button" class="sec-row tap${open ? " open" : ""}" data-sk="${key}" aria-expanded="${open}"` : `div class="sec-row"`;
+    return `<${tag}><span class="sec-name">${key ? `<i class="sec-chev" aria-hidden="true">›</i>` : ""}${name}${sub ? `<small>${sub}</small>` : ""}</span>
       <span class="sec-bar"><i class="${tone(v)}" style="width:${(Math.abs(v || 0) / max) * 50}%;${(v || 0) >= 0 ? "left:50%" : "right:50%"}"></i></span>
-      <b class="sec-pct ${tone(v)}">${pct(v)}</b></div>`;
+      <b class="sec-pct ${tone(v)}">${pct(v)}</b></${key ? "button" : "div"}>${open ? stocksHtml(key) : ""}`;
+  }
+
+  // Tap a sector → its stocks (from NSE's official index list) with live price and today's change.
+  const STOCKS = {}; // key -> { at, rows } | { loading } | { err }
+  function stocksHtml(key) {
+    const s = STOCKS[key];
+    if (!s || s.loading) return `<div class="sec-stocks"><div class="loading-line"><span class="spinner"></span>Loading stocks…</div></div>`;
+    if (s.err) return `<div class="sec-stocks"><p class="muted">Couldn't load this sector's stocks.</p></div>`;
+    return `<div class="sec-stocks">${s.rows.map((r) => `<a class="ss-row" href="#/c${esc(r.path)}">
+        <span class="ss-name">${esc(r.name.replace(/\s+Ltd\.?$/i, ""))}</span>
+        <span class="ss-price">${r.price == null ? "—" : "₹" + money(r.price, r.price < 100 ? 2 : r.price < 1000 ? 1 : 0)}</span>
+        <b class="ss-chg ${tone(r.change_pct)}">${pct(r.change_pct)}</b></a>`).join("")}
+      <div class="ss-note">${s.rows.length} stocks in this NSE index · best today first · tap one to open it</div></div>`;
+  }
+  async function loadStocks(key, box) {
+    const s = STOCKS[key];
+    if (s && !s.err && (s.loading || Date.now() - s.at < 2 * 60 * 1000)) return;
+    STOCKS[key] = { loading: true };
+    try { STOCKS[key] = { at: Date.now(), rows: await api("/api/sector-stocks", { key }) }; }
+    catch (e) { STOCKS[key] = { err: true }; }
+    if (H.open === key) draw(box);
   }
 
   function viewSectors(p) {
@@ -37,7 +60,7 @@
     const max = Math.max(1, ...list.map((s) => Math.abs(s[p])));
     const shown = H.all || list.length <= 6 ? list : [...list.slice(0, 3), null, ...list.slice(-3)];
     return `${nifty ? `<div class="sec-bench">Nifty 50 <b class="${tone(nifty[p])}">${pct(nifty[p])}</b></div>` : ""}
-      <div class="sec-list">${shown.map((s) => (s ? barRow(esc(s.name), "", s[p], max) : `<div class="sec-gap">···</div>`)).join("")}</div>
+      <div class="sec-list">${shown.map((s) => (s ? barRow(esc(s.name), "", s[p], max, s.key) : `<div class="sec-gap">···</div>`)).join("")}</div>
       ${list.length > 6 ? `<button class="w-more" data-sall>${H.all ? "Show less" : `Show all ${list.length} sectors`}</button>` : ""}`;
   }
 
@@ -82,6 +105,12 @@
     box.querySelectorAll("[data-sp]").forEach((b) => b.addEventListener("click", () => { H.period = b.dataset.sp; draw(box); }));
     box.querySelectorAll("[data-sv]").forEach((b) => b.addEventListener("click", () => { H.view = b.dataset.sv; draw(box); }));
     const all = box.querySelector("[data-sall]"); if (all) all.addEventListener("click", () => { H.all = !H.all; draw(box); });
+    box.querySelectorAll("[data-sk]").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.sk;
+      H.open = H.open === k ? null : k;
+      draw(box);
+      if (H.open) loadStocks(k, box);
+    }));
   }
   async function mount(box) {
     draw(box);

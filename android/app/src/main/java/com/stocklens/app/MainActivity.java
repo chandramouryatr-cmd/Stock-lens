@@ -118,22 +118,50 @@ public class MainActivity extends Activity {
 
     private void ready(boolean load) {
         status.setVisibility(View.GONE);
-        String path = getIntent().getStringExtra("path"); // opened from a target notification
-        if (path != null && !path.isEmpty()) { getIntent().removeExtra("path"); web.loadUrl(serverUrl + "/#/c" + path); }
+        String to = target(getIntent()); // opened from a notification or the widget
+        if (to != null) web.loadUrl(serverUrl + "/#" + to);
         else if (load || web.getUrl() == null) web.loadUrl(serverUrl + "/");
+    }
+
+    /** Where a notification or widget tap wants to go: a stock ("path") or a page ("hash"), else null. */
+    private static String target(Intent i) {
+        String path = i.getStringExtra("path"), hash = i.getStringExtra("hash");
+        i.removeExtra("path"); i.removeExtra("hash");
+        if (path != null && !path.isEmpty()) return "/c" + path;
+        if (hash != null && !hash.isEmpty()) return hash;
+        return null;
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        String path = intent.getStringExtra("path");
-        if (serverUrl != null && path != null && !path.isEmpty()) { intent.removeExtra("path"); web.loadUrl(serverUrl + "/#/c" + path); }
+        if (serverUrl == null) return; // still starting: ready() will read the intent
+        String to = target(intent);
+        if (to != null) web.loadUrl(serverUrl + "/#" + to);
     }
 
     /** Called from watch.js. Everything here stays on the phone. */
     private class Bridge {
         @JavascriptInterface public void setTargets(String json) { Targets.save(getApplicationContext(), json); }
+        /** Ask Android to place the widget on the home screen (Android shows its own confirm dialog). */
+        @JavascriptInterface public boolean pinWidget() {
+            android.appwidget.AppWidgetManager m = android.appwidget.AppWidgetManager.getInstance(getApplicationContext());
+            if (!m.isRequestPinAppWidgetSupported()) return false;
+            return m.requestPinAppWidget(new android.content.ComponentName(getApplicationContext(), WidgetProvider.class), null, null);
+        }
+        @JavascriptInterface public boolean hasWidget() { return WidgetProvider.hasWidgets(getApplicationContext()); }
+        /** The watchlist for the home-screen widget; redraws the widget only when the list really changed. */
+        @JavascriptInterface public void setWatchlist(String json) {
+            android.content.SharedPreferences p = getSharedPreferences("stocklens", MODE_PRIVATE);
+            if (json.equals(p.getString("watch", null))) return;
+            p.edit().putString("watch", json).apply();
+            if (WidgetProvider.hasWidgets(getApplicationContext()))
+                new Thread(() -> {
+                    try { WidgetProvider.refresh(getApplicationContext()); }
+                    catch (Exception e) { android.util.Log.w("StockLens", "widget refresh failed", e); }
+                }, "stock-lens-widget").start();
+        }
         @JavascriptInterface public String getTargets() { return Targets.load(getApplicationContext()); }
         @JavascriptInterface public void notify(String title, String body, String path) { Targets.notify(getApplicationContext(), title, body, path); }
         @JavascriptInterface public void askNotify() {

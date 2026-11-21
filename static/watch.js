@@ -30,6 +30,9 @@
     if (!NATIVE) return;
     const list = store.get("sl-watch").filter((w) => t[w.path]).map((w) => ({ path: w.path, name: shortName(w.name), sym: symOf(w), ...t[w.path] }));
     try { NATIVE.setTargets(JSON.stringify(list)); } catch (e) {}
+    // The home-screen widget shows the watchlist: hand it the names, links and price symbols.
+    const watch = store.get("sl-watch").map((w) => ({ path: w.path, name: shortName(w.name), sym: symOf(w) }));
+    try { if (NATIVE.setWatchlist) NATIVE.setWatchlist(JSON.stringify(watch)); } catch (e) {}
   }
   // The phone's background check may have fired while the app was closed: copy those hits in.
   function pullNativeHits() {
@@ -252,10 +255,15 @@
 
   PAGES["/watchlist"] = (view) => {
     document.title = "Watchlist · Stock Lens";
-    view.innerHTML = `<div class="page-narrow"><section class="card fade-in" id="watch-page"></section></div>`;
+    let hasW = false;
+    try { hasW = NATIVE && NATIVE.hasWidget && NATIVE.hasWidget(); } catch (e) {}
+    view.innerHTML = `<div class="page-narrow"><section class="card fade-in" id="watch-page"></section>
+      ${NATIVE && NATIVE.pinWidget && !hasW ? `<button class="w-pin" id="w-pin"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 14v6M14 17h6"/></svg>Add widget to home screen</button>` : ""}</div>`;
+    const pin = document.getElementById("w-pin");
+    if (pin) pin.addEventListener("click", () => { try { NATIVE.pinWidget(); } catch (e) {} });
     mount($("#watch-page"), { page: true });
   };
 
-  window.Watch = { mount };
+  window.Watch = { mount, sync: () => syncNative() };
   syncNative();
 })();

@@ -62,15 +62,19 @@ final class Targets {
     }
 
     static void schedule(Context c, boolean on) {
-        JobScheduler js = c.getSystemService(JobScheduler.class);
-        if (js == null) return;
-        if (!on) { js.cancel(JOB_ID); return; }
-        if (js.getPendingJob(JOB_ID) != null) return;
-        js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(c, TargetJob.class))
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPeriodic(15 * 60 * 1000L)
-                .setPersisted(true) // survives a phone restart
-                .build());
+        try { // a scheduling problem must never close the app
+            JobScheduler js = c.getSystemService(JobScheduler.class);
+            if (js == null) return;
+            if (!on) { js.cancel(JOB_ID); return; }
+            if (js.getPendingJob(JOB_ID) != null) return;
+            js.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(c, TargetJob.class))
+                    .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                    .setPeriodic(15 * 60 * 1000L)
+                    .setPersisted(true) // survives a phone restart
+                    .build());
+        } catch (Exception e) {
+            android.util.Log.w("StockLens", "target job not scheduled", e);
+        }
     }
 
     /** One pass: fetch each pending target's price and notify on a hit. Runs off the main thread. */

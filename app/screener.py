@@ -319,6 +319,14 @@ def valuation(cid, consolidated=True):
 
 
 INDEXES = {"nifty50": "ind_nifty50list", "nifty100": "ind_nifty100list", "nifty200": "ind_nifty200list", "nifty500": "ind_nifty500list"}
+# The stocks inside each sector index on the Markets page (keys match SECTORS below).
+SECTOR_LISTS = {
+    "bank": "ind_niftybanklist", "psubank": "ind_niftypsubanklist", "fin": "ind_niftyfinancelist", "it": "ind_niftyitlist",
+    "pharma": "ind_niftypharmalist", "auto": "ind_niftyautolist", "fmcg": "ind_niftyfmcglist", "metal": "ind_niftymetallist",
+    "realty": "ind_niftyrealtylist", "energy": "ind_niftyenergylist", "infra": "ind_niftyinfralist", "pse": "ind_niftypselist",
+    "consum": "ind_niftyconsumptionlist", "nifty": "ind_nifty50list",
+}
+INDEXES.update({"sec:" + k: v for k, v in SECTOR_LISTS.items()})
 
 
 @cached(7 * DAY)
@@ -398,9 +406,23 @@ def _quote_one(symbol):
     }
 
 
-def quote(symbols):
+def sector_stocks(key):
+    """The stocks in one sector index with their live price and today's change, biggest gainers first."""
+    if key not in SECTOR_LISTS:
+        raise ValueError("Unknown sector")
+    members = index_list("sec:" + key)
+    q = quote(",".join(m["symbol"] + ".NS" for m in members), limit=50)
+    out = []
+    for m in members:
+        r = q.get(m["symbol"] + ".NS") or {}
+        out.append({**m, "price": r.get("price"), "change_pct": r.get("change_pct")})
+    out.sort(key=lambda x: (x["change_pct"] is None, -(x["change_pct"] or 0)))
+    return out
+
+
+def quote(symbols, limit=30):
     """Latest price and today's change for up to 30 NSE (.NS) / BSE (.BO) symbols."""
-    syms = [s for s in (symbols or "").split(",") if s][:30]
+    syms = [s for s in (symbols or "").split(",") if s][:limit]
     if not syms or not all(re.fullmatch(r"[\w\-&.]+\.(NS|BO)|\^NSEI", s) for s in syms):
         raise ValueError("Bad symbol")
     out = {}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget colours, dark mode -->
+    <color name="w_bg">#F21C1C1E</color>
+    <color name="w_text">#F5F5F7</color>
+    <color name="w_sub">#98989D</color>
+    <color name="w_sep">#33FFFFFF</color>
+    <color name="w_up">#30D158</color>
+    <color name="w_down">#FF453A</color>
+    <color name="w_flat">#636366</color>
+</resources>

@@ -28,6 +28,8 @@ def route(path, qs):
         return screener.price(_one(qs, "symbol"), _one(qs, "range", "1y"))
     if path == "/api/commodities":
         return screener.commodities()
+    if path == "/api/sector-stocks":
+        return screener.sector_stocks(_one(qs, "key", ""))
     if path == "/api/sectors":
         return screener.sectors()
     if path == "/api/quote":

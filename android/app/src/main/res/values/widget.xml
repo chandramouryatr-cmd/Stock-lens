@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget colours, light mode (dark mode in values-night/widget.xml) -->
+    <color name="w_bg">#F2FFFFFF</color>
+    <color name="w_text">#1D1D1F</color>
+    <color name="w_sub">#6E6E73</color>
+    <color name="w_sep">#1F3C3C43</color>
+    <color name="w_up">#248A3D</color>
+    <color name="w_down">#D70015</color>
+    <color name="w_flat">#8E8E93</color>
+
+    <string name="widget_desc">Your watchlist with live prices and today\'s change, plus the Nifty 50.</string>
+
+    <style name="WRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minHeight">30dp</item>
+        <item name="android:maxHeight">44dp</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingEnd">4dp</item>
+    </style>
+    <style name="WName">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textColor">@color/w_text</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="WPrice">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">8dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:textColor">@color/w_text</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+    <style name="WChg">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">66dp</item>
+        <item name="android:gravity">end</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingTop">2dp</item>
+        <item name="android:paddingBottom">2dp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:background">@drawable/chip_flat</item>
+    </style>
+</resources>
