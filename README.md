@@ -34,7 +34,7 @@ Links to articles and filings open in the phone's browser. Back closes the detai
 | Tab | What it answers | Source |
 |---|---|---|
 | **Overview** | Health check (8 fixed pass / watch / fail rules), trend score (did the latest year beat the one before?), your own notes, key ratios, sales and profit trend, latest quarters, exchange filings, annual reports, earnings calls, credit ratings | Screener.in |
-| **Price & valuation** | Quality, valuation and momentum scores out of 100; 5-year price chart with 50-day and 200-day averages; RSI, 52-week range, biggest fall, volatility, delivery %; returns against the Nifty 50; P/E against its own 5-year median; fair-value calculator; 10 years of dividends and share splits | Yahoo Finance + Screener.in |
+| **Chart & valuation** | Candle / line chart first (1 day to all years, averages, volume, RSI, Nifty, dividends); then quality, valuation and momentum scores out of 100; RSI, 52-week range, biggest fall, volatility, delivery %; returns against the Nifty 50; P/E against its own 5-year median; fair-value calculator; 10 years of dividends and share splits | Yahoo Finance + Screener.in |
 | **Financials** | Every year of profit and loss, balance sheet, cash flow, ratios and quarters, with a trend line per row and CSV download | Screener.in |
 | **Network** | One map: company → owners → related parties → directors → the other companies those directors run, plus peers | Screener.in + ZaubaCorp |
 | **People** | Every director and key manager: role, tenure, how many boards they sit on, which other companies, and shared boards | ZaubaCorp (Ministry of Corporate Affairs records) |

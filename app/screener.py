@@ -458,7 +458,8 @@ def _sector_one(sym):
         return None
     pct = lambda base: round((last / base - 1) * 100, 2) if base else None
     return {"price": last, "day": pct(closes[-2]), "week": pct(closes[-6] if len(closes) >= 6 else closes[0]),
-            "month": pct(closes[0]), "line": [round(c, 2) for c in closes]}
+            "month": pct(closes[0]), "line": [round(c, 2) for c in closes],
+            "time": res.get("meta", {}).get("regularMarketTime")}
 
 
 @cached(5 * 60)
@@ -472,12 +473,22 @@ def sectors():
     return out
 
 
-# World commodity futures (US dollars) and the rupee. Gold and silver also get a rough rupee price:
-# dollars per troy ounce x USD/INR / 31.1035 g, BEFORE import duty and GST (so below Indian MCX / shop prices).
+# World commodity futures (Yahoo Finance, US dollars) turned into the rupee prices Indians see.
+# MCX (India's commodity exchange) prices = world price x USD/INR, in Indian units, plus import duty on
+# gold and silver. These are close estimates, not live MCX quotes (MCX data isn't free).
+GRAMS_PER_OZ = 31.1035
+LB_PER_KG = 2.20462
+DUTY_GOLD_SILVER = 0.06  # basic customs duty + cess on gold and silver since the July 2024 budget; update if it changes
+GST_BULLION = 0.03       # GST on gold and silver bought from a shop
 COMMODITIES = [
-    ("GC=F", "Gold", "$/oz"), ("SI=F", "Silver", "$/oz"), ("BZ=F", "Brent crude", "$/barrel"), ("CL=F", "WTI crude", "$/barrel"),
-    ("NG=F", "Natural gas", "$/mmBtu"), ("HG=F", "Copper", "$/lb"),
-    ("INR=X", "US dollar in rupees", "₹ per $"),
+    # symbol, name, world unit, how to make the Indian price, Indian unit
+    ("GC=F", "Gold", "$/oz", lambda p, u: p * u / GRAMS_PER_OZ * 10 * (1 + DUTY_GOLD_SILVER), "per 10 g"),
+    ("SI=F", "Silver", "$/oz", lambda p, u: p * u / GRAMS_PER_OZ * 1000 * (1 + DUTY_GOLD_SILVER), "per kg"),
+    ("CL=F", "Crude oil (WTI)", "$/barrel", lambda p, u: p * u, "per barrel"),
+    ("BZ=F", "Crude oil (Brent)", "$/barrel", lambda p, u: p * u, "per barrel"),
+    ("NG=F", "Natural gas", "$/mmBtu", lambda p, u: p * u, "per mmBtu"),
+    ("HG=F", "Copper", "$/lb", lambda p, u: p * u * LB_PER_KG, "per kg"),
+    ("INR=X", "US dollar", "₹ per $", None, None),
 ]
 
 
@@ -485,18 +496,24 @@ COMMODITIES = [
 def commodities():
     rows = {}
     with ThreadPoolExecutor(max_workers=4) as ex:
-        for (sym, name, unit), r in zip(COMMODITIES, ex.map(lambda c: _safe(lambda: _sector_one(c[0])), COMMODITIES)):
+        for c, r in zip(COMMODITIES, ex.map(lambda c: _safe(lambda: _sector_one(c[0])), COMMODITIES)):
             if r:
-                rows[sym] = {"symbol": sym, "name": name, "unit": unit, **r}
+                rows[c[0]] = {"symbol": c[0], "name": c[1], "unit": c[2], **r}
     usd = rows.get("INR=X", {}).get("price")
-    if usd:
-        if "GC=F" in rows:
-            rows["GC=F"]["inr"] = {"value": round(rows["GC=F"]["price"] * usd / 31.1035 * 10), "unit": "₹ per 10 g"}
-        if "SI=F" in rows:
-            rows["SI=F"]["inr"] = {"value": round(rows["SI=F"]["price"] * usd / 31.1035 * 1000), "unit": "₹ per kg"}
+    out = []
+    for sym, name, unit, to_inr, inr_unit in COMMODITIES:
+        row = rows.get(sym)
+        if not row:
+            continue
+        if usd and to_inr:
+            row["inr"] = {"value": round(to_inr(row["price"], usd), 2), "unit": inr_unit}
+            if sym in ("GC=F", "SI=F"):
+                row["inr"]["shop"] = round(row["inr"]["value"] * (1 + GST_BULLION))  # with 3% GST
+        out.append(row)
     vix = _safe(lambda: _sector_one("^INDIAVIX"))
-    return {"items": [rows[s] for s, _, _ in COMMODITIES if s in rows], "vix": vix}
-
+    nifty = _safe(lambda: _sector_one("^NSEI"))
+    return {"items": out, "vix": vix, "nifty": nifty["price"] if nifty else None,
+            "duty": DUTY_GOLD_SILVER, "gst": GST_BULLION}
 
 def _safe(fn):
     try:

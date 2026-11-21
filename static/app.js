@@ -132,7 +132,7 @@
   /* ------------------------------------------------------------------ State */
   const S = { path: null, company: null, people: null, peopleErr: null, price: null, news: {}, tab: "overview", token: 0, newsFilter: "all", flaggedOnly: false, cy: null, net: { owners: true, related: true, peers: true, people: true, links: true, allLinks: false } };
   const TABS = [
-    ["overview", "Overview"], ["price", "Price & valuation"], ["network", "Network"], ["people", "People"],
+    ["overview", "Overview"], ["price", "Chart & valuation"], ["network", "Network"], ["people", "People"],
     ["owners", "Owners & dealings"], ["news", "News"], ["risks", "Risks"],
   ];
 
@@ -700,8 +700,8 @@
     const peNow = pe.length ? pe[pe.length - 1][1] : null;
     const below = pe.length ? Math.round((pe.filter((x) => x[1] < peNow).length / pe.length) * 100) : null;
     const epsCh = eps.length > 1 && eps[0][1] > 0 ? (eps[eps.length - 1][1] / eps[0][1] - 1) * 100 : null;
+    // Chart first; scores, figures, returns and valuation below it.
     el.innerHTML = `<div class="grid">
-      <div id="pro-top"></div>
       <div class="card" id="pchart"><div class="hc-head"><div><h2>Price</h2><p class="sub ex">Daily closing price with its 50-day and 200-day averages${info("moving average")}. Hover the chart for exact values.</p></div>
         <div class="seg mini" id="pr-seg">${RANGES.map(([k]) => `<button data-pr="${k}" aria-selected="${k === S.pr}">${k}</button>`).join("")}</div></div>
         <div id="ch-price"></div></div>
@@ -715,6 +715,7 @@
         ${sig("volatility", "Volatility, 1 year", vol == null ? "—" : vol.toFixed(0) + "%", "", nVol ? `Nifty 50: ${nVol.toFixed(0)}% — ${vol > nVol * 2.5 ? "a much bumpier ride" : vol > nVol ? "a bumpier ride" : "a calmer ride"}` : "")}
         ${dNow != null ? sig("delivery", "Delivery, last 4 weeks", dNow.toFixed(0) + "%", "", `1-year average ${dYear.toFixed(0)}% — ${dNow > dYear + 5 ? "more buying to hold than usual" : dNow < dYear - 5 ? "more short-term trading than usual" : "about normal"}`) : ""}
       </div>
+      <div id="pro-top"></div>
       <div class="grid g2">
         <div class="card"><h2>Returns against the market</h2><p class="sub ex">Price change only (dividends left out), next to the Nifty 50${info("nifty")}. The last column is how far ahead or behind the stock is.</p>
           <div class="scroll-x"><table class="t"><thead><tr><th>Period</th><th>${esc(shortName(c.name))}</th><th>Nifty 50</th><th>Difference</th></tr></thead><tbody>${retRows}</tbody></table></div>

@@ -69,11 +69,17 @@
     if (!comm) return `<div class="loading-line"><span class="spinner"></span>Loading commodities…</div>`;
     const items = comm.items.filter((x) => x[p] != null);
     const max = Math.max(1, ...items.map((x) => Math.abs(x[p])));
+    const t = Math.max(...items.map((x) => x.time || 0));
+    const when = t ? new Date(t * 1000).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "";
     return `<div class="sec-list">${items.map((x) => {
-      const price = x.inr ? `₹${money(x.inr.value, 0)} <span>${esc(x.inr.unit)}*</span>` : `${x.unit.startsWith("₹") ? "₹" : "$"}${money(x.price, x.price < 10 ? 2 : x.price < 1000 ? 2 : 0)} <span>${esc(x.unit.replace(/^\$\//, "per ").replace(/^₹ per \$/, "per $"))}</span>`;
-      return barRow(esc(x.name), price, x[p], max);
+      // Indian price first (MCX style), the world price underneath.
+      const world = `${x.unit.startsWith("₹") ? "₹" : "$"}${money(x.price, x.price < 100 ? 2 : 0)} ${esc(x.unit.replace(/^\$\//, "/ ").replace(/^₹ per \$/, "per $"))}`;
+      const sub = x.inr
+        ? `₹${money(x.inr.value, x.inr.value < 1000 ? 2 : 0)} <span>${esc(x.inr.unit)}</span>${x.inr.shop ? `<em>Shop with GST ≈ ₹${money(x.inr.shop, 0)}</em>` : ""}<em>World ${world}</em>`
+        : `<span>${world}</span>`;
+      return barRow(esc(x.name), sub, x[p], max);
     }).join("")}</div>
-      <p class="sec-note">World futures prices. *Gold and silver in rupees are rough: before import duty and GST, so below Indian shop and MCX prices.</p>`;
+      <p class="sec-note">Indian prices are worked out from world futures × today's dollar rate${comm.duty ? `, with ${Math.round(comm.duty * 100)}% import duty on gold and silver` : ""}. They track MCX closely but aren't live MCX quotes.${when ? ` Last update ${when}.` : ""}</p>`;
   }
 
   function viewFno(p) {
@@ -81,15 +87,31 @@
     if (!comm) return `<div class="loading-line"><span class="spinner"></span>Loading…</div>`;
     const v = comm.vix;
     if (!v) return `<p class="muted">India VIX isn't available right now.</p>`;
-    const lvl = v.price < 13 ? ["Calm", "up"] : v.price <= 20 ? ["Normal", ""] : v.price <= 25 ? ["Nervous", "down"] : ["Fearful", "down"];
+    const lvl = v.price < 13 ? ["Calm", "up", "Traders expect a quiet market."] : v.price <= 20 ? ["Normal", "", "Traders expect ordinary ups and downs."]
+      : v.price <= 25 ? ["Nervous", "down", "Traders expect bigger swings than usual."] : ["Fearful", "down", "Traders expect very big swings; markets are jumpy."];
+    // VIX is the expected yearly swing in %. Divide by √12 for a month and √252 for a day.
+    const month = v.price / Math.sqrt(12), day = v.price / Math.sqrt(252), n = comm.nifty;
+    const pts = (x) => (n ? ` (about ${money(Math.round((n * x) / 100 / 10) * 10, 0)} points)` : "");
     return `<div class="vix">
-        <div><div class="vix-k">India VIX ${SL.info("india vix")}</div><div class="vix-v">${v.price.toFixed(2)}</div></div>
+        <div><div class="vix-k">Fear gauge · India VIX ${SL.info("india vix")}</div><div class="vix-v">${v.price.toFixed(1)}</div></div>
         <div class="vix-r"><b class="${lvl[1]}">${lvl[0]}</b><span class="${tone(-(v[p] || 0))}">${pct(v[p])} ${p === "day" ? "today" : p === "week" ? "this week" : "this month"}</span></div>
       </div>
       <div class="vix-scale"><span>Calm &lt;13</span><span>Normal 13–20</span><span>Nervous 20–25</span><span>Fearful &gt;25</span>
         <i style="left:${Math.min(98, Math.max(2, ((v.price - 8) / (32 - 8)) * 100))}%"></i></div>
-      <p class="sec-note">VIX comes from Nifty option prices: it shows how big a move traders expect over the next month. Rising VIX usually means falling, jumpy markets.
-        Option chain, open interest and futures data come only from NSE, which blocks free automated access. <a href="https://www.nseindia.com/option-chain" target="_blank" rel="noopener">Open NSE option chain</a></p>`;
+      <div class="vix-say">
+        <div><b>±${month.toFixed(1)}%</b><span>how much traders expect the Nifty to move in the next 30 days${pts(month)}</span></div>
+        <div><b>±${day.toFixed(1)}%</b><span>a normal day's move at this level${pts(day)}</span></div>
+      </div>
+      <p class="vix-line">${lvl[2]}</p>
+      <details class="vix-what"><summary>What is F&amp;O, and what is this number?</summary>
+        <ul>
+          <li><b>F&amp;O</b> means <b>futures and options</b>: contracts that let traders bet on where the Nifty will go, or protect themselves against a fall, without buying the shares.</li>
+          <li>When traders are worried about a big move, they pay more for options as protection. <b>India VIX</b> turns those option prices into one number: the swing the market is bracing for over the next year, in %.</li>
+          <li><b>Higher VIX = more fear.</b> It usually jumps when markets fall and drifts down when they are calm. Above 20, expect bigger daily ups and downs.</li>
+          <li>It doesn't say which way the market will go, only how big the moves are likely to be.</li>
+        </ul>
+        <p class="sec-note">Detailed F&amp;O data (option chain, open interest) comes only from NSE, which blocks free automated access. <a href="https://www.nseindia.com/option-chain" target="_blank" rel="noopener">Open NSE option chain</a></p>
+      </details>`;
   }
 
   function draw(box) {
@@ -100,7 +122,7 @@
     box.innerHTML = `
       <div class="card-head mk-head"><h2>Markets</h2>
         <div class="w-sort sec-seg" role="group" aria-label="Period">${seg("day", "Today")}${seg("week", "Week")}${seg("month", "Month")}</div></div>
-      <div class="sec-tabs" role="tablist">${tab("sec", "Sectors")}${tab("com", "Commodities")}${tab("fno", "F&amp;O")}</div>
+      <div class="sec-tabs" role="tablist">${tab("sec", "Sectors")}${tab("com", "Commodities")}${tab("fno", "Fear gauge")}</div>
       ${H.view === "sec" ? viewSectors(p) : H.view === "com" ? viewComm(p) : viewFno(p)}`;
     box.querySelectorAll("[data-sp]").forEach((b) => b.addEventListener("click", () => { H.period = b.dataset.sp; draw(box); }));
     box.querySelectorAll("[data-sv]").forEach((b) => b.addEventListener("click", () => { H.view = b.dataset.sv; draw(box); }));

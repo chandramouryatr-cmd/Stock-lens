@@ -282,8 +282,9 @@
     const c = S.company;
     S.fin = S.fin || "profit-loss";
     const t = c.tables[S.fin];
-    el.innerHTML = `<div class="card"><div class="hc-head"><div><h2>Financial statements</h2><p class="sub ex">Every year Screener has on record, in ₹ Crore unless marked %. ${c.consolidated ? "Consolidated" : "Standalone"} figures${info(c.consolidated ? "consolidated" : "standalone")}. Tap an “i” for what a row means.</p></div>
-        <button class="btn secondary" id="fin-csv">Download all (CSV)</button></div>
+    el.innerHTML = `<div class="card"><div class="fin-head"><h2>Financial statements</h2>
+        <button class="fin-csv" id="fin-csv" title="Download every statement as a CSV file (opens in Excel)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>CSV</button></div>
+        <p class="fin-unit">₹ Crore unless marked % · ${c.consolidated ? "Consolidated" : "Standalone"}${info(c.consolidated ? "consolidated" : "standalone")}</p>
       <div class="seg mini" style="margin-bottom:14px">${STATEMENTS.map(([k, l]) => `<button data-fin="${k}" aria-selected="${k === S.fin}">${l}</button>`).join("")}</div>
       ${t && t.rows.length ? (() => {
         // Phone: newest year first (with the trend line next to it), so the latest numbers show without scrolling.

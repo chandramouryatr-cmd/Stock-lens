@@ -408,12 +408,72 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 .vix-v { font: 700 2.25rem/1.1 var(--font-display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .vix-r { text-align: right; display: grid; gap: 3px; font-size: 0.875rem; }
 .vix-r b { font-size: 1.0625rem; }
+.sec-name em { display: block; font-style: normal; font-size: 0.6875rem; font-weight: 400; color: var(--text-3); }
+.vix-say { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.vix-say > div { display: grid; gap: 2px; }
+.vix-say b { font: 700 1.375rem/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.vix-say span { font-size: 0.75rem; color: var(--text-2); line-height: 1.3; }
+.vix-line { margin: 10px 0 0; font-size: 0.9375rem; font-weight: 500; }
+.vix-what { margin-top: 12px; border-top: 1px solid var(--sep); }
+.vix-what > summary { cursor: pointer; padding: 12px 0 4px; font-weight: 600; color: var(--accent); list-style: none; }
+.vix-what > summary::-webkit-details-marker { display: none; }
+.vix-what ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.875rem; line-height: 1.5; color: var(--text); }
+.vix-what li { margin: 4px 0; }
 .vix-scale { position: relative; display: grid; grid-template-columns: 5fr 7fr 5fr 7fr; gap: 3px; font-size: 0.6875rem; color: var(--text-3); margin-top: 4px; padding-top: 12px; }
 .vix-scale::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--good), #ffcc00 40%, #ff9500 70%, var(--high)); opacity: 0.75; }
 .vix-scale i { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--text); }
 
+/* ---------- Hidden previews: Plans and App tour ---------- */
+.pv-row { order: 3; font-size: 0.8125rem; color: var(--text-3); margin-top: 6px; }
+.pl-preview { display: inline-block; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--med); background: var(--med-bg); padding: 3px 9px; border-radius: 999px; margin-top: 8px; }
+.pl-title { font: 700 1.75rem/1.15 var(--font-display); letter-spacing: -0.03em; margin: 10px 0 8px; }
+.pl-trial { font-size: 0.9375rem; color: var(--text-2); margin-bottom: 16px; }
+.pl-trial b { color: var(--good); }
+.pl-list { display: grid; gap: 10px; }
+.pl-card { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; background: var(--surface); box-shadow: 0 0 0 1.5px var(--sep); font: inherit; color: var(--text); cursor: pointer; transition: box-shadow 150ms; }
+.pl-card.on { box-shadow: 0 0 0 2px var(--accent), var(--shadow-s); }
+.pl-radio { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--fill-strong); }
+.pl-card.on .pl-radio { box-shadow: inset 0 0 0 6px var(--accent); }
+.pl-main { display: grid; gap: 2px; min-width: 0; }
+.pl-main b { font-size: 1.0625rem; }
+.pl-main small { font-size: 0.8125rem; color: var(--text-2); }
+.pl-price { text-align: right; display: grid; gap: 1px; }
+.pl-price b { font: 700 1.375rem/1.1 var(--font-display); letter-spacing: -0.02em; }
+.pl-price small { font-size: 0.75rem; color: var(--text-3); }
+.pl-price em { font-style: normal; font-size: 0.75rem; color: var(--good); font-weight: 600; }
+.pl-badge { position: absolute; top: -9px; left: 16px; font-size: 0.6875rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; color: #fff; background: var(--accent); }
+.pl-badge.year { background: var(--good); }
+.pl-save { grid-column: 2 / -1; font-size: 0.75rem; font-weight: 600; color: var(--good); margin-top: -4px; }
+.pl-cta { width: 100%; margin-top: 18px; padding: 14px; font-size: 1rem; border-radius: 14px; }
+.pl-cta:disabled { opacity: 0.6; }
+.pl-fine { font-size: 0.75rem; color: var(--text-3); text-align: center; margin: 10px 4px 0; line-height: 1.45; }
+.pl-feat { margin-top: 18px; }
+.pl-feat ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+.pl-feat li { position: relative; padding-left: 26px; font-size: 0.9375rem; line-height: 1.4; }
+.pl-feat li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 0.6875rem; font-weight: 700; color: #fff; background: var(--good); }
+.tour-card { text-align: center; padding: 28px 22px 22px !important; margin-top: 12px; }
+.tour-step { font-size: 0.75rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; }
+.tour-art { width: 96px; height: 96px; margin: 18px auto 14px; border-radius: 28px; display: grid; place-items: center; background: linear-gradient(145deg, #2997ff, #0058b9); box-shadow: 0 10px 24px rgba(0, 113, 227, 0.3); }
+.tour-art svg { width: 52px; height: 52px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.tour-card h2 { margin: 0 0 8px; font-size: 1.375rem; }
+.tour-card p { margin: 0 auto; max-width: 340px; color: var(--text-2); line-height: 1.5; }
+.tour-dots { display: flex; justify-content: center; gap: 6px; margin: 20px 0 16px; }
+.tour-dots i { width: 7px; height: 7px; border-radius: 4px; background: var(--fill-strong); transition: width 200ms; }
+.tour-dots i.on { width: 22px; background: var(--accent); }
+.tour-btns { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.tour-btns .btn { min-width: 120px; padding: 11px 18px; border-radius: 12px; }
+
+/* Financial statements: title and a small CSV button on one line */
+.fin-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fin-head h2 { margin: 0; }
+.fin-csv { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 7px 13px; background: var(--fill); color: var(--accent); font: inherit; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+.fin-csv:hover { background: var(--fill-strong); }
+.fin-unit { margin: 4px 0 12px; font-size: 0.8125rem; color: var(--text-3); display: flex; align-items: center; gap: 3px; }
+
 /* Screener section: "Screen stocks | Compare" switch at the top of both pages */
 .tool-switch { display: inline-flex; background: var(--fill); border-radius: 10px; padding: 3px; margin-top: 12px; }
+/* On phones the page header is a column: keep the switch under the title, only as wide as its two buttons */
+.co-head .tool-switch { order: 3; align-self: flex-start; }
 .tool-switch a { padding: 7px 16px; border-radius: 8px; font-size: 0.9375rem; font-weight: 600; color: var(--text-2); }
 .tool-switch a:hover { text-decoration: none; color: var(--text); }
 .tool-switch a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-s); }
