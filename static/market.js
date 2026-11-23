@@ -134,7 +134,8 @@
         items.push({ ...it, theme: g.theme, im: judge(it.title) });
       }
       items.sort((a, b) => b.ts - a.ts);
-      M.data = { items, themes: groups.map((g) => g.theme) };
+      // The same story from several sites becomes one item with "+N similar".
+      M.data = { items: window.SL.groupNews(items), themes: groups.map((g) => g.theme) };
       M.at = Date.now();
     } catch (e) { M.err = e.message; }
     M.loading = false;
@@ -153,7 +154,7 @@
     try {
       const items = await window.SL.api("/api/news", { q: Q.q });
       if (my !== Q.tok) return;
-      Q.items = items.map((x) => ({ ...x, im: window.SL.newsImpact(x, Q.q) }));
+      Q.items = window.SL.groupNews(items, [Q.q]).map((x) => ({ ...x, im: window.SL.newsImpact(x, Q.q) }));
     } catch (e) { if (my === Q.tok) Q.err = e.message; }
     if (my === Q.tok) { Q.loading = false; draw(); }
   }
@@ -194,7 +195,7 @@
       <div class="mk-seg" role="tablist">${seg("all", "All", all.length)}${seg("pos", "▲ Positive", n("pos"))}${seg("neg", "▼ Negative", n("neg"))}</div>
       <div class="mk-list">${list.length ? list.slice(0, 40).map((x) => `<article class="mk-item">
           <a class="mk-h" href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
-          <div class="mk-meta">${impactBadge(x.im)} ${esc(x.source)} · ${ago(x.ts)}</div></article>`).join("")
+          <div class="mk-meta">${impactBadge(x.im)} ${esc(x.source)} · ${ago(x.ts)}</div>${window.SL.dupsHtml(x, ago)}</article>`).join("")
         : `<div class="empty">${all.length ? "None in this group." : `No news found for “${esc(Q.q)}” in the last year.`}</div>`}</div>`;
     box.querySelectorAll("[data-qt]").forEach((b) => b.addEventListener("click", () => { Q.tab = b.dataset.qt; draw(); }));
     document.getElementById("nt-pin").addEventListener("click", () => {
@@ -275,7 +276,7 @@
           ${main.length ? `<button class="mk-why ${x.im.dir}" data-wi="${i}" aria-expanded="false">${esc(main[0].text)}</button>
             <div class="mk-detail hidden" id="mkd-${i}">${x.im.sectors.length ? `<div><b>Who feels it:</b> ${esc(x.im.sectors[0])}</div>` : ""}
               <div class="faint">Decided by: ${esc(words.join(" · "))}. A word-rule hint, not a forecast.</div></div>` : ""}
-          <div class="mk-meta">${esc(x.source)} · ${ago(x.ts)} · ${esc(x.theme)}</div></article>`;
+          <div class="mk-meta">${esc(x.source)} · ${ago(x.ts)} · ${esc(x.theme)}</div>${window.SL.dupsHtml(x, ago)}</article>`;
       }).join("") : `<div class="empty">${M.tab === "none" ? "Every headline here leans one way." : `No ${M.tab === "pos" ? "positive" : "negative"} headlines in this topic right now.`}</div>`}</div>
       ${list.length > shown.length ? `<button class="w-more" id="mk-more">Show ${list.length - shown.length} more</button>` : ""}`;
     box.querySelectorAll("[data-mt]").forEach((b) => b.addEventListener("click", () => { M.tab = b.dataset.mt; M.more = false; draw(); }));

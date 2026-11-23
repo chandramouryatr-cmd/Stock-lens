@@ -10,3 +10,10 @@ android/build/
 android/app/build/
 android/local.properties
 *.apk
+
+# iPhone build: copied-in code (ios/sync.py) and Briefcase output
+ios/src/app/
+ios/src/slweb/
+ios/build/
+ios/dist/
+ios/logs/

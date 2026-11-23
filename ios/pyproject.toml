@@ -1,0 +1,35 @@
+# Stock Lens for iPhone, built with BeeWare Briefcase (https://briefcase.readthedocs.io).
+# Briefcase turns this Python app into an Xcode project and bundles Python inside it.
+# It needs a Mac (or a GitHub cloud Mac). See ios/README.md for the steps.
+
+[tool.briefcase]
+project_name = "Stock Lens"
+bundle = "com.stocklens"
+version = "1.0.0"
+url = "https://github.com/chandramouryatr-cmd/Stock-lens"
+license.file = "LICENSE"
+author = "Mourya"
+
+[tool.briefcase.app.stocklens]
+formal_name = "Stock Lens"
+description = "Check any Indian stock in 2 minutes before you buy."
+long_description = "Health check, chart, owners, people and red-flag news for every NSE / BSE stock, from free public data. A research tool, not investment advice."
+icon = "resources/stocklens"
+# Each folder becomes a top-level Python package inside the app:
+#   stocklens_ios  - the iPhone start-up code (this folder)
+#   app            - the Stock Lens server, copied in from ../app by sync.py
+#   slweb          - the web page (../static), copied in by sync.py
+sources = ["src/stocklens_ios", "src/app", "src/slweb"]
+requires = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    # lxml is left out on purpose: the server falls back to Python's built-in HTML parser.
+    # The Anthropic SDK is left out too, so "Ask Claude" is hidden; "Meaning" still works.
+]
+
+[tool.briefcase.app.stocklens.iOS]
+requires = ["toga-iOS~=0.5.0", "std-nslog~=1.0.3"]
+# Let the in-app web view talk to the app's own local server (http://127.0.0.1) and nothing else over plain http.
+info."NSAppTransportSecurity" = { NSAllowsLocalNetworking = true }
+info."UIStatusBarStyle" = "UIStatusBarStyleDefault"
+info."ITSAppUsesNonExemptEncryption" = false

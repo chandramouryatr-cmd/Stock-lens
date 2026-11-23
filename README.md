@@ -17,6 +17,10 @@ On Windows you can also double-click **`start.bat`**. It opens at http://127.0.0
 
 Keyboard: press `/` to search, `Esc` to close the side panel or an explanation.
 
+## iPhone app (not built yet)
+
+`ios/` holds an iPhone version made with BeeWare. It works the same way: the Python server runs inside the app, and a full-screen view shows the pages. Building it needs a Mac, or the GitHub cloud-Mac workflow in `.github/workflows/ios-build.yml`. Installing it on an iPhone needs an Apple ID or an Apple Developer account. See `ios/README.md`.
+
 ## Android app
 
 `android/` builds a phone app that runs the same Python server **on the phone itself** (Chaquopy embeds Python 3.10). It shows the pages in a full-screen view, so it needs no PC and no shared Wi-Fi. The build copies `app/` and `static/` in fresh each time, so there is still only one copy of the code to edit.

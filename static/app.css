@@ -427,6 +427,14 @@ table.t { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-vari
 .pv-row { order: 3; font-size: 0.8125rem; color: var(--text-3); margin-top: 6px; }
 .pl-preview { display: inline-block; font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--med); background: var(--med-bg); padding: 3px 9px; border-radius: 999px; margin-top: 8px; }
 .pl-title { font: 700 1.75rem/1.15 var(--font-display); letter-spacing: -0.03em; margin: 10px 0 8px; }
+.pl-lede { font-size: 1rem; line-height: 1.45; color: var(--text-2); margin: 0 0 14px; }
+.pl-story { padding: 12px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--sep); margin-bottom: 14px; }
+.pl-story-k { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-bottom: 4px; }
+.pl-story p { margin: 0; font-size: 0.9375rem; line-height: 1.5; }
+.tour-art.tabs { background: linear-gradient(145deg, #8e8e93, #48484a); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2); }
+.tour-art.alert { background: linear-gradient(145deg, #ff6961, #d70015); box-shadow: 0 10px 24px rgba(215, 0, 21, 0.3); }
+.tour-art.check { background: linear-gradient(145deg, #30d158, #248a3d); box-shadow: 0 10px 24px rgba(36, 138, 61, 0.3); }
+.tour-one { margin-top: 14px !important; font-weight: 700; color: var(--text) !important; }
 .pl-trial { font-size: 0.9375rem; color: var(--text-2); margin-bottom: 16px; }
 .pl-trial b { color: var(--good); }
 .pl-list { display: grid; gap: 10px; }
@@ -513,6 +521,14 @@ button.sec-row.open .sec-name { color: var(--accent); }
 .nq-n { font-size: 0.8125rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .mk-seg button.all.on { color: var(--text); }
 .mk-meta .impact { margin-right: 4px; }
+/* "+N similar stories": the same news from other sites, folded under the newest one */
+.dups { margin-top: 5px; }
+.dups > summary { display: inline-block; list-style: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: var(--text-2); background: var(--fill); padding: 2px 9px; border-radius: 999px; }
+.dups > summary::-webkit-details-marker { display: none; }
+.dups[open] > summary { color: var(--accent); }
+.dups a { display: block; margin: 6px 0 0 10px; padding-left: 10px; border-left: 2px solid var(--sep); font-size: 0.8125rem; line-height: 1.35; color: var(--text-2); }
+.dups a:hover { color: var(--accent); text-decoration: none; }
+.dups a span { display: block; font-size: 0.6875rem; color: var(--text-3); margin-top: 1px; }
 
 /* Company page: today's move vs sector vs Nifty */
 .sector-line { margin-top: 8px; }

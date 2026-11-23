@@ -322,10 +322,9 @@
   function home() {
     document.title = "Stock Lens";
     if (S.cy) { S.cy.destroy(); S.cy = null; }
-    const hr = new Date().getHours();
     $("#view").innerHTML = `
       <header class="home-head fade-in">
-        <h1>${hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening"}</h1>
+        <h1>Never buy a stock blind again</h1>
       </header>
       <div class="home-one">
         <section class="card fade-in">
@@ -1000,6 +999,43 @@
     const dir = score >= 1 ? "pos" : score <= -1 ? "neg" : pos && neg ? "mixed" : "none";
     return { dir, strong: Math.abs(score) >= 3, score, why };
   }
+  /* Same story, many sites: group headlines that share most of their important words into one item.
+     The newest stays on top; the others hang under it as "+N similar". Everyday market words (Sensex,
+     Nifty, stock, today…) and the company's own name don't count, so two different Sensex stories stay apart. */
+  // Words too common to show two headlines are the same story. Direction words (rises, falls…) are NOT here:
+  // "Rupee rises" and "Rupee falls" are different stories.
+  const NEWS_STOP = new Set(("the and for with from after amid its this that are has have will was were over into says said what why how who "
+    + "new more than about before here just now can may could set sees see share shares stock stocks market markets today india indian "
+    + "sensex nifty live updates update top key ltd limited news trade trading week day hits hit high highs low lows price prices "
+    + "rate rates month months year years time all crore per cent percent near").split(" "));
+  function newsWords(title, extra) {
+    return new Set(title.toLowerCase().replace(/[’']s\b/g, "").split(/[^a-z0-9₹]+/)
+      .filter((w) => (w.length > 2 || /^\d\d$/.test(w)) && !NEWS_STOP.has(w) && !extra.has(w))); // "23 paise", "92.85": same figures = same story
+  }
+  function groupNews(items, about = []) {
+    const extra = new Set([].concat(about).join(" ").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    const out = [], sigs = [];
+    for (const x of items) { // items arrive newest first
+      const w = newsWords(x.title, extra);
+      let host = -1;
+      for (let i = 0; i < out.length && host < 0; i++) {
+        if (Math.abs((out[i].ts || 0) - (x.ts || 0)) > 36 * 3600) continue; // same story = within 36 hours
+        let n = 0; for (const v of w) if (sigs[i].has(v)) n++;
+        const lo = Math.min(w.size, sigs[i].size), hi = Math.max(w.size, sigs[i].size);
+        if (lo && n >= 3 && n / lo >= 0.7 && n / hi >= 0.45) host = i;
+      }
+      if (host < 0) { out.push({ ...x, dups: [] }); sigs.push(w); }
+      else out[host].dups.push(x);
+    }
+    return out;
+  }
+  // "+2 similar" under a headline: tap to see the same story from other sites.
+  function dupsHtml(x, agoFn) {
+    if (!x.dups || !x.dups.length) return "";
+    return `<details class="dups"><summary>+${x.dups.length} similar ${x.dups.length > 1 ? "stories" : "story"}</summary>
+      ${x.dups.map((d) => `<a href="${esc(d.link)}" target="_blank" rel="noopener">${esc(d.title)}<span>${esc(d.source || "")}${agoFn ? " · " + agoFn(d.ts) : ""}</span></a>`).join("")}</details>`;
+  }
+
   const IMPACT_LABEL = { pos: "Likely positive", neg: "Likely negative", mixed: "Mixed", none: "No clear impact" };
   function impactBadge(im) {
     if (im.dir === "none") return "";
@@ -1015,6 +1051,8 @@
     for (const g of groups) for (const it of g.items) all.push({ ...it, g });
     const seen = new Set();
     all = all.filter((x) => { const k = x.link; if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => b.ts - a.ts);
+    // The same story from several sites becomes one item with "+N similar".
+    all = groupNews(all, [shortName(S.company.name)]);
     all.forEach((x) => (x.im = newsImpact(x)));
     const imp = S.newsImpact || "any";
     const words = (S.newsQ || "").toLowerCase().split(/\s+/).filter(Boolean);
@@ -1040,7 +1078,7 @@
       ${loading ? `<div class="loading-line" style="margin-bottom:8px"><span class="spinner"></span>Gathering more headlines…</div>` : ""}
       <div>${sorted.length ? sorted.slice(0, 120).map((x) => `<div class="news-item"><div class="when">${ago(x.ts)}</div><div style="min-width:0">
           <a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.title)}</a>
-          <div class="meta">${impactBadge(x.im)}<span>${esc(x.source)}</span><span class="pill">${esc(x.g.label)}</span>${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("")
+          <div class="meta">${impactBadge(x.im)}<span>${esc(x.source)}</span><span class="pill">${esc(x.g.label)}</span>${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div>${dupsHtml(x, ago)}</div></div>`).join("")
         : `<div class="empty">${loading ? "" : "No headlines match."}</div>`}</div></div>`;
     $$("[data-nf]", el).forEach((b) => b.addEventListener("click", () => { S.newsFilter = b.dataset.nf; tabNews(el); }));
     $$("[data-imp]", el).forEach((b) => b.addEventListener("click", () => { S.newsImpact = b.dataset.imp; tabNews(el); }));
@@ -1531,11 +1569,12 @@
       const show = (items) => {
         if (tok !== sheetTok) return;
         const fl = items.filter((i) => i.risk >= 2).length;
+        items = groupNews(items, [name]);
         items.forEach((x) => (x.im = newsImpact(x)));
         const top = items.slice(0, 10), np = top.filter((x) => x.im.dir === "pos").length, nn = top.filter((x) => x.im.dir === "neg").length;
         box.innerHTML = `<div class="section-title" style="font-size:1rem;margin-top:14px">In the news ${fl ? badge(items.some((i) => i.risk === 3) ? "high" : "medium", fl + " flagged") : items.length ? badge("good", "Nothing flagged") : ""}</div>
           ${np || nn ? `<div class="sh-impact"><span class="impact pos">▲ ${np} likely positive</span><span class="impact neg">▼ ${nn} likely negative</span>${info("news impact")}</div>` : ""}
-          ${top.map((x) => `<div class="news-item" style="padding:10px 0"><div class="when">${ago(x.ts)}</div><div style="min-width:0"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="font-size:.875rem">${esc(x.title)}</a><div class="meta">${impactBadge(x.im)}${esc(x.source)} ${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div></div></div>`).join("") || '<p class="muted" style="font-size:.875rem">No headlines in the last year.</p>'}`;
+          ${top.map((x) => `<div class="news-item" style="padding:10px 0"><div class="when">${ago(x.ts)}</div><div style="min-width:0"><a href="${esc(x.link)}" target="_blank" rel="noopener" style="font-size:.875rem">${esc(x.title)}</a><div class="meta">${impactBadge(x.im)}${esc(x.source)} ${x.tags.map((t) => badge(t.severity, t.label)).join("")}</div>${dupsHtml(x, ago)}</div></div>`).join("") || '<p class="muted" style="font-size:.875rem">No headlines in the last year.</p>'}`;
       };
       if (cachedKey && S.news[cachedKey] && !S.news[cachedKey].loading) show(S.news[cachedKey].items);
       else {
@@ -1549,5 +1588,5 @@
   }
 
   // Shared with pro.js (portfolio, custom screener, financials, fair value…), which calls SL.start() once loaded.
-  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, EXAMPLES, newsImpact, impactBadge, toolSwitch, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
+  window.SL = { $, $$, esc, api, inr, info, store, shortName, signed, tone, scoreBar, go, watched, refresh, EXAMPLES, newsImpact, impactBadge, toolSwitch, groupNews, dupsHtml, Tech, S, SCR, screenAdd, UNIVERSE, TABS, PAGES, XTABS, HOOKS, ICON, pending, start: route };
 })();

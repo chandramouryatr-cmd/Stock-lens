@@ -102,8 +102,9 @@ def search(q, limit=40, scan=False, period="1y"):
 MARKET_THEMES = [
     ("India markets", "Sensex OR Nifty OR \"Indian stock market\" OR \"Dalal Street\""),
     ("Economy & RBI", "RBI OR \"repo rate\" OR \"India GDP\" OR \"India inflation\" OR \"India economy\""),
-    ("Foreign money & rupee", "FPI OR FII OR rupee dollar"),
-    ("Oil & commodities", "\"crude oil\" OR Brent OR \"gold price\""),
+    # "-convert": skip currency-converter pages. "Brent crude", not just "Brent" (which also finds people named Brent).
+    ("Foreign money & rupee", "(FPI OR FII OR \"rupee against\" OR \"rupee vs\" OR \"Indian rupee\") -convert -converter"),
+    ("Oil & commodities", "\"crude oil\" OR \"Brent crude\" OR \"oil prices\" OR \"gold price\" OR \"silver price\""),
     ("Global markets", "\"Wall Street\" OR \"US Fed\" OR \"Federal Reserve\" OR \"global markets\" OR \"Asian markets\""),
     ("Trade & geopolitics", "tariffs OR \"trade deal\" OR sanctions OR war markets OR geopolitical"),
 ]
